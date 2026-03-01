@@ -119,10 +119,19 @@ export async function POST(req: Request) {
                 return NextResponse.json({ ok: true, message: "Nothing to refund" });
             }
 
+            const user = await db.user.findUnique({ where: { id: transaction.userId } });
+            if (!user) {
+                console.error(`[WEBHOOK] User not found for refund: ${transaction.userId}`);
+                return NextResponse.json({ error: "User not found" }, { status: 404 });
+            }
+
+            // Ensure balance doesn't go below 0 (prevents negative balance exploit)
+            const newBalance = Math.max(0, user.prxBalance - transaction.amountPrx);
+
             await db.$transaction([
                 db.user.update({
                     where: { id: transaction.userId },
-                    data: { prxBalance: { decrement: transaction.amountPrx } },
+                    data: { prxBalance: newBalance },
                 }),
                 db.transaction.update({
                     where: { id: transaction.id },
@@ -130,7 +139,7 @@ export async function POST(req: Request) {
                 }),
             ]);
 
-            console.log(`[WEBHOOK] 🔄 ${transaction.amountPrx} PRX deducted from user ${transaction.userId} (${event})`);
+            console.log(`[WEBHOOK] 🔄 ${transaction.amountPrx} PRX deducted from user ${transaction.userId} (New Balance: ${newBalance}) (${event})`);
             return NextResponse.json({ ok: true, refunded: transaction.amountPrx });
         }
 

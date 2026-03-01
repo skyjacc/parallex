@@ -1,8 +1,15 @@
 import { NextResponse } from "next/server";
 import { hash } from "bcryptjs";
 import { db } from "@/lib/db";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
+    let ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
+    if (ip.includes(",")) ip = ip.split(",")[0].trim();
+
+    if (!rateLimit(ip, 60 * 1000, 5)) {
+        return NextResponse.json({ ok: false, error: "Too many requests. Try again later." }, { status: 429 });
+    }
     try {
         const body = await req.json();
         const { email, password, name } = body;
@@ -50,19 +57,14 @@ export async function POST(req: Request) {
         const existingEmail = await db.user.findUnique({
             where: { email },
         });
-        if (existingEmail) {
-            return NextResponse.json(
-                { ok: false, error: "An account with this email already exists" },
-                { status: 409 }
-            );
-        }
 
         const existingName = await db.user.findUnique({
             where: { name: username },
         });
-        if (existingName) {
+
+        if (existingEmail || existingName) {
             return NextResponse.json(
-                { ok: false, error: "This username is already taken" },
+                { ok: false, error: "An account with this email or username already exists" },
                 { status: 409 }
             );
         }

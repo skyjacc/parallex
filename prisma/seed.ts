@@ -15,22 +15,32 @@ async function main() {
     console.log("🌱 Seeding database...\n");
 
     // ── Admin user
-    const adminPassword = await hash("admin123", 12);
+    const adminPass = process.env.ADMIN_PASSWORD || "admin123";
+    const adminPassword = await hash(adminPass, 12);
     const admin = await prisma.user.upsert({
         where: { email: "admin@parallax.gg" },
         update: {},
         create: { email: "admin@parallax.gg", name: "Admin", password: adminPassword, role: "ADMIN", prxBalance: 99999 },
     });
-    console.log(`✅ Admin: ${admin.email} / admin123`);
+    if (process.env.NODE_ENV !== "production") {
+        console.log(`✅ Admin: ${admin.email} / ${adminPass}`);
+    } else {
+        console.log(`✅ Admin seeded.`);
+    }
 
     // ── Test user
-    const userPassword = await hash("user123", 12);
+    const userPass = process.env.USER_PASSWORD || "user123";
+    const userPassword = await hash(userPass, 12);
     const user = await prisma.user.upsert({
         where: { email: "user@parallax.gg" },
         update: {},
         create: { email: "user@parallax.gg", name: "TestUser", password: userPassword, role: "USER", prxBalance: 5000 },
     });
-    console.log(`✅ User: ${user.email} / user123`);
+    if (process.env.NODE_ENV !== "production") {
+        console.log(`✅ User: ${user.email} / ${userPass}`);
+    } else {
+        console.log(`✅ User seeded.`);
+    }
 
     // ── Products with stock keys
     const productsData = [
@@ -89,10 +99,12 @@ async function main() {
     console.log(`✅ ${paymentMethods.length} payment methods seeded`);
 
     console.log("\n🎉 Seed complete!");
-    console.log("─────────────────────────────────────");
-    console.log("Admin:  Admin / admin123");
-    console.log("User:   TestUser / user123 (5000 PRX)");
-    console.log("─────────────────────────────────────");
+    if (process.env.NODE_ENV !== "production") {
+        console.log("─────────────────────────────────────");
+        console.log(`Admin:  Admin / ${process.env.ADMIN_PASSWORD || "admin123"}`);
+        console.log(`User:   TestUser / ${process.env.USER_PASSWORD || "user123"} (5000 PRX)`);
+        console.log("─────────────────────────────────────");
+    }
 }
 
 main()

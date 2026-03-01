@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { rateLimit } from "@/lib/rate-limit";
+import crypto from "crypto";
 
 const BASE_RATE = 100;
 
@@ -24,13 +26,25 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: false, error: "Not authenticated" }, { status: 401 });
     }
 
+    let ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
+    if (ip.includes(",")) ip = ip.split(",")[0].trim();
+
+    // Limits top-up attempts to 5 per minute per IP
+    if (!rateLimit(ip, 60 * 1000, 5)) {
+        return NextResponse.json({ ok: false, error: "Too many top-up attempts. Try again later." }, { status: 429 });
+    }
+
     const isAdmin = (session.user as any)?.role === "ADMIN";
 
     try {
         const { prxAmount, paymentMethodId } = await req.json();
 
-        if (!prxAmount || prxAmount < 50) {
-            return NextResponse.json({ ok: false, error: "Minimum top-up is 50 PRX" }, { status: 400 });
+        if (!prxAmount || typeof prxAmount !== "number" || isNaN(prxAmount) || !Number.isFinite(prxAmount) || prxAmount < 50) {
+            return NextResponse.json({ ok: false, error: "Minimum top-up is 50 PRX and must be a valid number" }, { status: 400 });
+        }
+
+        if (prxAmount > 1000000) {
+            return NextResponse.json({ ok: false, error: "Maximum top-up is 1,000,000 PRX" }, { status: 400 });
         }
 
         if (!paymentMethodId) {
@@ -62,7 +76,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ ok: false, error: "User not found" }, { status: 404 });
         }
 
-        const moneymotionId = `mm_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+        const moneymotionId = `mm_${Date.now()}_${crypto.randomUUID()}`;
 
         // ── Gateway-specific logic ──────────────────────────────
         const gatewayHandlers: Record<string, () => Promise<{ redirectUrl?: string; error?: string }>> = {

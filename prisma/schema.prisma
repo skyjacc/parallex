@@ -39,7 +39,7 @@ model User {
   email      String   @unique
   password   String
   image      String?
-  prxBalance Float    @default(0.0)
+  prxBalance Int      @default(0)
   role       Role     @default(USER)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -58,7 +58,7 @@ model Product {
   name        String
   description String
   imageUrl    String?
-  pricePrx    Float
+  pricePrx    Int
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -95,7 +95,7 @@ model Order {
   userId    String
   productId String
   stockId   String   @unique
-  costPrx   Float
+  costPrx   Int
   createdAt DateTime @default(now())
 
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -113,7 +113,7 @@ model Order {
 model Transaction {
   id            String            @id @default(cuid())
   userId        String
-  amountPrx     Float
+  amountPrx     Int
   moneymotionId String            @unique
   status        TransactionStatus @default(PENDING)
   type          TransactionType   @default(DEPOSIT)
