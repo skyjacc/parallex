@@ -71,3 +71,57 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: false, error: "Failed to create product" }, { status: 500 });
     }
 }
+
+export async function PATCH(req: Request) {
+    const session = await getServerSession(authOptions);
+    if ((session?.user as any)?.role !== "ADMIN") {
+        return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+    }
+
+    try {
+        const { id, name, description, pricePrx } = await req.json();
+
+        if (!id) {
+            return NextResponse.json({ ok: false, error: "Product ID is required" }, { status: 400 });
+        }
+
+        const data: Record<string, any> = {};
+        if (name !== undefined) data.name = name;
+        if (description !== undefined) data.description = description;
+        if (pricePrx !== undefined) data.pricePrx = Number(pricePrx);
+
+        const product = await db.product.update({ where: { id }, data });
+
+        return NextResponse.json({ ok: true, product: { id: product.id, name: product.name } });
+    } catch (error) {
+        console.error("PATCH /api/admin/products error:", error);
+        return NextResponse.json({ ok: false, error: "Failed to update product" }, { status: 500 });
+    }
+}
+
+export async function DELETE(req: Request) {
+    const session = await getServerSession(authOptions);
+    if ((session?.user as any)?.role !== "ADMIN") {
+        return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+    }
+
+    try {
+        const { id } = await req.json();
+
+        if (!id) {
+            return NextResponse.json({ ok: false, error: "Product ID is required" }, { status: 400 });
+        }
+
+        const hasOrders = await db.order.count({ where: { productId: id } });
+        if (hasOrders > 0) {
+            return NextResponse.json({ ok: false, error: `Cannot delete: ${hasOrders} orders reference this product` }, { status: 400 });
+        }
+
+        await db.product.delete({ where: { id } });
+
+        return NextResponse.json({ ok: true });
+    } catch (error) {
+        console.error("DELETE /api/admin/products error:", error);
+        return NextResponse.json({ ok: false, error: "Failed to delete product" }, { status: 500 });
+    }
+}
