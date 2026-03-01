@@ -9,8 +9,10 @@ import crypto from "crypto";
 
 // Events that credit the user's balance
 const CREDIT_EVENTS = ["complete"];
-// Events that mark transaction as failed
-const FAIL_EVENTS = ["failed", "fraud"];
+// Events that mark transaction as permanently failed
+const FAIL_EVENTS = ["fraud", "expired"];
+// Events that represent a failed payment attempt but the session stays open
+const ATTEMPT_FAIL_EVENTS = ["payment:failed", "checkout_session:failed", "failed"];
 // Events that trigger refund (deduct balance back)
 const REFUND_EVENTS = ["refunded", "disputed"];
 // Events that are informational only (no balance change)
@@ -100,7 +102,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ ok: true, credited: transaction.amountPrx });
         }
 
-        // ── Handle FAIL events (failed, fraud) ──────────────────
+        // ── Handle FAIL events (fraud, expired) ──────────────────
         if (FAIL_EVENTS.includes(event)) {
             if (transaction.status !== "PENDING") {
                 console.log(`[WEBHOOK] TX ${txId} not pending (${transaction.status}) — skip fail`);
@@ -113,6 +115,35 @@ export async function POST(req: Request) {
             });
 
             console.log(`[WEBHOOK] ❌ TX ${txId} marked as FAILED (event: ${event})`);
+            return NextResponse.json({ ok: true });
+        }
+
+        // ── Handle ATTEMPT FAIL events (failed) ──────────────────
+        if (ATTEMPT_FAIL_EVENTS.includes(event)) {
+            if (transaction.status !== "PENDING") {
+                return NextResponse.json({ ok: true, message: "Transaction no longer pending, ignoring attempt fail" });
+            }
+
+            // Extract reason 
+            const reason = payload.payment?.declineReason || payload.reason || "Payment declined";
+            const lastFour = payload.payment?.paymentMethod?.last4 || payload.lastFourDigits || null;
+
+            const newAttempt = {
+                reason,
+                lastFour,
+                time: new Date().toISOString()
+            };
+
+            const existingAttempts = Array.isArray(transaction.failedAttempts) ? transaction.failedAttempts : [];
+
+            await db.transaction.update({
+                where: { id: transaction.id },
+                data: {
+                    failedAttempts: [...existingAttempts, newAttempt]
+                }
+            });
+
+            console.log(`[WEBHOOK] ⚠️ TX ${txId} failed attempt recorded: ${reason}`);
             return NextResponse.json({ ok: true });
         }
 

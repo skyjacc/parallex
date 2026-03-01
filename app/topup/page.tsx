@@ -26,16 +26,16 @@ const quickAmounts = [100, 500, 1000, 2500, 5000, 10000];
 /* ── Payment method SVG icons by code ────────────────────── */
 const methodIcons: Record<string, React.ReactNode> = {
     moneymotion: (
-        <svg viewBox="0 0 48 32" className="w-10 h-7" fill="none"><rect width="48" height="32" rx="4" fill="#0071b2"/><path d="M14 10h4l3 6 3-6h4l-5 12h-4l-5-12z" fill="white"/><circle cx="35" cy="16" r="5" fill="white" fillOpacity="0.3"/></svg>
+        <svg viewBox="0 0 48 32" className="w-10 h-7" fill="none"><rect width="48" height="32" rx="4" fill="#0071b2" /><path d="M14 10h4l3 6 3-6h4l-5 12h-4l-5-12z" fill="white" /><circle cx="35" cy="16" r="5" fill="white" fillOpacity="0.3" /></svg>
     ),
     stripe: (
-        <svg viewBox="0 0 48 32" className="w-10 h-7" fill="none"><rect width="48" height="32" rx="4" fill="#635BFF"/><path d="M22 12c0-.8.7-1.2 1.8-1.2 1.6 0 3.6.5 5.2 1.4V8.4c-1.7-.7-3.5-1-5.2-1C20.5 7.4 18 9.2 18 12.3c0 4.8 6.6 4 6.6 6.1 0 1-.8 1.3-2 1.3-1.7 0-4-.7-5.7-1.7v3.9c1.9.8 3.9 1.2 5.7 1.2 3.5 0 5.9-1.7 5.9-4.9 0-5.2-6.5-4.3-6.5-6.2z" fill="white"/></svg>
+        <svg viewBox="0 0 48 32" className="w-10 h-7" fill="none"><rect width="48" height="32" rx="4" fill="#635BFF" /><path d="M22 12c0-.8.7-1.2 1.8-1.2 1.6 0 3.6.5 5.2 1.4V8.4c-1.7-.7-3.5-1-5.2-1C20.5 7.4 18 9.2 18 12.3c0 4.8 6.6 4 6.6 6.1 0 1-.8 1.3-2 1.3-1.7 0-4-.7-5.7-1.7v3.9c1.9.8 3.9 1.2 5.7 1.2 3.5 0 5.9-1.7 5.9-4.9 0-5.2-6.5-4.3-6.5-6.2z" fill="white" /></svg>
     ),
     paypal: (
-        <svg viewBox="0 0 48 32" className="w-10 h-7" fill="none"><rect width="48" height="32" rx="4" fill="#003087"/><path d="M20.5 8H26C28.5 8 30 9.5 29.7 12C29.3 15 27 16.5 24.5 16.5H23L22 22H19L20.5 8Z" fill="#009CDE"/><path d="M18.5 10H24C26.5 10 28 11.5 27.7 14C27.3 17 25 18.5 22.5 18.5H21L20 24H17L18.5 10Z" fill="white"/></svg>
+        <svg viewBox="0 0 48 32" className="w-10 h-7" fill="none"><rect width="48" height="32" rx="4" fill="#003087" /><path d="M20.5 8H26C28.5 8 30 9.5 29.7 12C29.3 15 27 16.5 24.5 16.5H23L22 22H19L20.5 8Z" fill="#009CDE" /><path d="M18.5 10H24C26.5 10 28 11.5 27.7 14C27.3 17 25 18.5 22.5 18.5H21L20 24H17L18.5 10Z" fill="white" /></svg>
     ),
     crypto: (
-        <svg viewBox="0 0 48 32" className="w-10 h-7" fill="none"><rect width="48" height="32" rx="4" fill="#F7931A"/><path d="M30 14.5C30.3 12.5 28.8 11.4 26.7 10.7L27.3 8.3L25.8 7.9L25.2 10.2C24.8 10.1 24.4 10 24 9.9L24.6 7.6L23.1 7.2L22.5 9.6C22.2 9.5 21.8 9.4 21.5 9.3L19.5 8.8L19.1 10.4C19.1 10.4 20.2 10.7 20.2 10.7C20.8 10.8 20.9 11.2 20.9 11.5L20.2 14.3C20.3 14.3 20.3 14.3 20.4 14.4L20.2 14.3L19.2 18.1C19.2 18.3 19 18.6 18.5 18.4L17.4 18.1L16.7 19.9L18.6 20.4L19.3 20.6L18.7 23L20.2 23.4L20.8 21C21.2 21.1 21.6 21.2 22 21.3L21.4 23.7L22.9 24.1L23.5 21.7C26 22.2 27.9 22 28.7 19.8C29.4 18 28.7 16.9 27.4 16.2C28.3 16 29 15.4 30 14.5Z" fill="white"/></svg>
+        <svg viewBox="0 0 48 32" className="w-10 h-7" fill="none"><rect width="48" height="32" rx="4" fill="#F7931A" /><path d="M30 14.5C30.3 12.5 28.8 11.4 26.7 10.7L27.3 8.3L25.8 7.9L25.2 10.2C24.8 10.1 24.4 10 24 9.9L24.6 7.6L23.1 7.2L22.5 9.6C22.2 9.5 21.8 9.4 21.5 9.3L19.5 8.8L19.1 10.4C19.1 10.4 20.2 10.7 20.2 10.7C20.8 10.8 20.9 11.2 20.9 11.5L20.2 14.3C20.3 14.3 20.3 14.3 20.4 14.4L20.2 14.3L19.2 18.1C19.2 18.3 19 18.6 18.5 18.4L17.4 18.1L16.7 19.9L18.6 20.4L19.3 20.6L18.7 23L20.2 23.4L20.8 21C21.2 21.1 21.6 21.2 22 21.3L21.4 23.7L22.9 24.1L23.5 21.7C26 22.2 27.9 22 28.7 19.8C29.4 18 28.7 16.9 27.4 16.2C28.3 16 29 15.4 30 14.5Z" fill="white" /></svg>
     ),
 };
 
@@ -66,6 +66,14 @@ function TopUpContent() {
     const [loadingMethods, setLoadingMethods] = useState(true);
     const [processing, setProcessing] = useState(false);
 
+    const [pollingTxId, setPollingTxId] = useState<string | null>(null);
+    const [pollStatus, setPollStatus] = useState<{
+        status: string;
+        reason?: string | null;
+        lastFour?: string | null;
+        failedAttempts?: any[];
+    } | null>(null);
+
     const balance = (session?.user as any)?.prxBalance ?? 0;
     const prxAmount = Number(inputPrx) || 0;
     const tier = useMemo(() => getBonus(prxAmount), [prxAmount]);
@@ -80,6 +88,48 @@ function TopUpContent() {
             .then((data) => { if (data.ok) setMethods(data.methods); })
             .finally(() => setLoadingMethods(false));
     }, []);
+
+    // Polling logic
+    useEffect(() => {
+        if (!pollingTxId) return;
+
+        const interval = setInterval(async () => {
+            try {
+                const res = await fetch(`/api/topup/status?txId=${pollingTxId}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.status === "COMPLETED") {
+                        setPollStatus({ status: "COMPLETED" });
+                        setPollingTxId(null);
+
+                        // Fake-update balance to give instant feedback before next-auth syncs
+                        const currentSession = session as any;
+                        if (currentSession?.user) {
+                            currentSession.user.prxBalance += data.amountPrx || totalPrx;
+                        }
+
+                        // Close modal after 3 seconds
+                        setTimeout(() => setPollStatus(null), 3000);
+                    } else if (data.status === "FAILED") {
+                        setPollStatus({
+                            status: "FAILED",
+                            reason: data.failureReason,
+                            lastFour: data.lastFourDigits,
+                            failedAttempts: data.failedAttempts
+                        });
+                        setPollingTxId(null);
+                    } else if (data.status === "PENDING" && data.failedAttempts?.length > 0) {
+                        setPollStatus(prev => prev ? { ...prev, failedAttempts: data.failedAttempts } : null);
+                    }
+                }
+            } catch (err) {
+                console.error("Polling error:", err);
+            }
+        }, 3000);
+
+        return () => clearInterval(interval);
+    }, [pollingTxId, session, totalPrx]);
+
 
     // Handle success/cancelled from redirect
     useEffect(() => {
@@ -143,8 +193,15 @@ function TopUpContent() {
                 return;
             }
 
-            if (data.redirectUrl) {
-                toast.loading("Redirecting to payment...");
+            if (data.redirectUrl && data.transactionId) {
+                toast.loading("Opening payment window...");
+                // Open in new tab
+                window.open(data.redirectUrl, "_blank");
+                // Start polling
+                setPollingTxId(data.transactionId);
+                setPollStatus({ status: "PENDING" });
+            } else if (data.redirectUrl) {
+                // Fallback for older transactions
                 window.location.href = data.redirectUrl;
             }
         } catch {
@@ -312,8 +369,8 @@ function TopUpContent() {
                                             ${!m.enabled
                                                 ? "opacity-40 cursor-not-allowed border-border bg-muted/5"
                                                 : isSelected
-                                                ? "border-primary bg-primary/5 shadow-sm cursor-pointer"
-                                                : "hover:border-muted-foreground/30 hover:bg-muted/20 cursor-pointer"
+                                                    ? "border-primary bg-primary/5 shadow-sm cursor-pointer"
+                                                    : "hover:border-muted-foreground/30 hover:bg-muted/20 cursor-pointer"
                                             }`}
                                     >
                                         <div className={!m.enabled ? "grayscale" : ""}>{icon}</div>
@@ -369,6 +426,89 @@ function TopUpContent() {
                     <span className="flex items-center gap-1.5"><Shield size={12} /> Secure payment</span>
                 </div>
             </div>
+
+            {/* ── Polling Modal ──────────────────────── */}
+            {pollStatus && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+                    <div className="bg-card w-full max-w-sm rounded-xl border shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                        <div className="p-6 text-center">
+                            {pollStatus.status === "PENDING" && (
+                                <>
+                                    <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+                                        <Loader2 size={32} className="text-primary animate-spin" />
+                                    </div>
+                                    <h2 className="text-xl font-semibold mb-2">Waiting for Payment</h2>
+                                    <p className="text-sm text-muted-foreground mb-4">
+                                        Please complete the payment in the new tab.
+                                        This window will update automatically once payment is detected.
+                                    </p>
+
+                                    {pollStatus.failedAttempts && pollStatus.failedAttempts.length > 0 && (
+                                        <div className="text-left bg-red-500/5 border border-red-500/10 rounded-lg p-3 mb-6">
+                                            <p className="text-xs font-semibold text-red-500 mb-2 flex items-center gap-1.5">
+                                                <AlertTriangle size={14} />
+                                                Failed Attempts:
+                                            </p>
+                                            <ul className="text-xs text-muted-foreground space-y-2">
+                                                {pollStatus.failedAttempts.map((attempt: any, idx: number) => (
+                                                    <li key={idx} className="flex flex-col">
+                                                        <span className="font-medium text-foreground">{attempt.reason || "Payment declined"}</span>
+                                                        {attempt.lastFour && (
+                                                            <span className="font-mono pt-0.5">Card •••• {attempt.lastFour}</span>
+                                                        )}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
+
+                                    <button
+                                        onClick={() => { setPollStatus(null); setPollingTxId(null); }}
+                                        className="text-sm text-muted-foreground hover:text-foreground underline transition-colors cursor-pointer"
+                                    >
+                                        Cancel
+                                    </button>
+                                </>
+                            )}
+
+                            {pollStatus.status === "COMPLETED" && (
+                                <>
+                                    <div className="mx-auto w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mb-4">
+                                        <CheckCircle size={32} className="text-emerald-500" />
+                                    </div>
+                                    <h2 className="text-xl font-semibold mb-2">Payment Successful!</h2>
+                                    <p className="text-sm text-muted-foreground">
+                                        Your PRX balance has been updated.
+                                    </p>
+                                </>
+                            )}
+
+                            {pollStatus.status === "FAILED" && (
+                                <>
+                                    <div className="mx-auto w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mb-4">
+                                        <AlertTriangle size={32} className="text-red-500" />
+                                    </div>
+                                    <h2 className="text-xl font-semibold mb-2">Payment Failed</h2>
+                                    <div className="text-sm text-muted-foreground mb-4 space-y-1">
+                                        <p>{pollStatus.reason || "The payment was declined or cancelled."}</p>
+                                        {pollStatus.lastFour && (
+                                            <p className="font-mono bg-muted py-1 px-2 rounded-md inline-block mt-2 text-xs">
+                                                Card ending in •••• {pollStatus.lastFour}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <button
+                                        onClick={() => { setPollStatus(null); setPollingTxId(null); }}
+                                        className="w-full inline-flex items-center justify-center rounded-lg text-sm font-medium bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 h-10 px-4 transition-all cursor-pointer"
+                                    >
+                                        Try Again
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
