@@ -217,9 +217,11 @@ export function Sidebar() {
 
                     {/* ── Footer / User Profile ── */}
                     <div className="flex flex-col gap-2 p-2 relative" ref={profileRef}>
-                        {/* Dropdown menu */}
-                        {profileOpen && session?.user && !collapsed && (
-                            <div className="absolute bottom-16 left-2 right-2 z-50 bg-popover text-popover-foreground border rounded-lg shadow-md p-1 animate-in fade-in-0 zoom-in-95">
+                        {/* Dropdown — opens to the RIGHT of sidebar, works collapsed & expanded */}
+                        {profileOpen && session?.user && (
+                            <div className="fixed bottom-4 z-50 bg-popover text-popover-foreground border rounded-lg shadow-lg p-1 w-64"
+                                style={{ left: collapsed ? "calc(3rem + 1rem + 8px)" : "calc(16rem + 8px)" }}
+                            >
                                 {/* User info */}
                                 <div className="px-2 py-1.5 text-sm">
                                     <div className="flex items-center gap-2">
