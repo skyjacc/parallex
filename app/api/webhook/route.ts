@@ -84,6 +84,9 @@ export async function POST(req: Request) {
                 return NextResponse.json({ ok: true, message: "Already processed" });
             }
 
+            const cardLast4 = payload.customer?.paymentMethodInfo?.lastFourDigits || null;
+            const cardBrand = payload.customer?.paymentMethodInfo?.cardBrand || null;
+
             await db.$transaction([
                 db.user.update({
                     where: { id: transaction.userId },
@@ -91,13 +94,11 @@ export async function POST(req: Request) {
                 }),
                 db.transaction.update({
                     where: { id: transaction.id },
-                    data: { status: "COMPLETED" },
+                    data: { status: "COMPLETED", cardLast4, cardBrand },
                 }),
             ]);
 
-            const lastFour = payload.customer?.paymentMethodInfo?.lastFourDigits || null;
-            const cardBrand = payload.customer?.paymentMethodInfo?.cardBrand || null;
-            console.log(`[WEBHOOK] +${transaction.amountPrx} PRX -> user ${transaction.userId} (card: ${cardBrand} ****${lastFour})`);
+            console.log(`[WEBHOOK] +${transaction.amountPrx} PRX -> user ${transaction.userId} (${cardBrand} ****${cardLast4})`);
             return NextResponse.json({ ok: true, credited: transaction.amountPrx });
         }
 

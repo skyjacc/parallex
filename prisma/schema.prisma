@@ -117,7 +117,8 @@ model Transaction {
   moneymotionId String            @unique
   status        TransactionStatus @default(PENDING)
   type          TransactionType   @default(DEPOSIT)
-  failedAttempts Json             @default("[]")
+  cardLast4     String?
+  cardBrand     String?
   createdAt     DateTime          @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

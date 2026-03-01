@@ -19,6 +19,8 @@ interface Transaction {
     amountPrx: number;
     status: "PENDING" | "COMPLETED" | "FAILED";
     type: "DEPOSIT" | "WITHDRAWAL";
+    cardLast4?: string | null;
+    cardBrand?: string | null;
     createdAt: string;
 }
 
@@ -200,8 +202,11 @@ export default function DashboardPage() {
                                                                 {cfg.label}
                                                             </span>
                                                         </div>
-                                                        <div className="text-[10px] text-muted-foreground mt-0.5">
-                                                            {new Date(tx.createdAt).toLocaleString()}
+                                                        <div className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-2">
+                                                            <span>{new Date(tx.createdAt).toLocaleString()}</span>
+                                                            {tx.cardLast4 && (
+                                                                <span className="font-mono">{tx.cardBrand || "card"} •••• {tx.cardLast4}</span>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </div>

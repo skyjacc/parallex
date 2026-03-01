@@ -35,46 +35,6 @@ export async function GET(req: Request) {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
-        let failureReason = null;
-        let lastFourDigits = null;
-
-        if (transaction.status === "FAILED" && transaction.moneymotionId) {
-            const apiKey = process.env.MONEYMOTION_API_KEY;
-
-            if (apiKey && apiKey !== "your-moneymotion-api-key") {
-                try {
-                    const sessionRes = await fetch(`https://api.moneymotion.io/checkoutSessions.getCompletedOrPendingCheckoutSessionInfo?json.checkoutId=${transaction.moneymotionId}`, {
-                        headers: { "x-api-key": apiKey, "x-currency": "usd" }
-                    });
-
-                    if (sessionRes.ok) {
-                        const sessData = await sessionRes.json();
-                        const checkoutInfo = sessData?.result?.data?.json;
-
-                        if (checkoutInfo) {
-                            failureReason = checkoutInfo.status === "failed" ? "Payment declined by issuing bank" : null;
-
-                            if (checkoutInfo.customerEmail) {
-                                const billingRes = await fetch(`https://api.moneymotion.io/customers.getBillingInformation?json.id=${checkoutInfo.customerEmail}`, {
-                                    headers: { "x-api-key": apiKey, "x-currency": "usd" }
-                                });
-
-                                if (billingRes.ok) {
-                                    const billData = await billingRes.json();
-                                    const paymentInfo = billData?.result?.data?.json?.paymentInformation;
-                                    if (paymentInfo?.lastFourDigits) {
-                                        lastFourDigits = paymentInfo.lastFourDigits;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                } catch (err) {
-                    console.error("[TOPUP STATUS] Error fetching MoneyMotion details:", err);
-                }
-            }
-        }
-
         const elapsed = Date.now() - new Date(transaction.createdAt).getTime();
         const isExpired = transaction.status === "PENDING" && elapsed > 30 * 60 * 1000;
 
@@ -82,14 +42,12 @@ export async function GET(req: Request) {
             ok: true,
             status: isExpired ? "EXPIRED" : transaction.status,
             amountPrx: transaction.amountPrx,
-            failureReason: failureReason || (transaction.status === "FAILED" ? "Payment failed or was cancelled." : null),
-            lastFourDigits,
-            failedAttempts: transaction.failedAttempts,
+            cardLast4: transaction.cardLast4,
+            cardBrand: transaction.cardBrand,
             createdAt: transaction.createdAt.toISOString(),
         });
-
     } catch (error) {
-        console.error("[TOPUP STATUS] Internal Error:", error);
+        console.error("[TOPUP STATUS] Error:", error);
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
 }

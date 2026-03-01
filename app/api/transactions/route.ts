@@ -27,6 +27,8 @@ export async function GET() {
                 amountPrx: t.amountPrx,
                 status: t.status,
                 type: t.type,
+                cardLast4: t.cardLast4,
+                cardBrand: t.cardBrand,
                 createdAt: t.createdAt.toISOString(),
             })),
         });
