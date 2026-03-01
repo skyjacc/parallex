@@ -183,7 +183,7 @@ export async function POST(req: Request) {
         // ── Success — create transaction ────────────────────────
         const finalTxId = result.checkoutSessionId || moneymotionId;
 
-        await db.transaction.create({
+        const transaction = await db.transaction.create({
             data: {
                 userId: user.id,
                 amountPrx: totalPrx,
@@ -197,7 +197,9 @@ export async function POST(req: Request) {
             return NextResponse.json({
                 ok: true,
                 redirectUrl: result.redirectUrl,
-                session: { id: moneymotionId, totalPrx, usdAmount, bonusPrx },
+                transactionId: transaction.id,
+                totalPrx,
+                bonusPrx,
             });
         }
 
