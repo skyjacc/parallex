@@ -1,0 +1,141 @@
+// ============================================================
+// PRX Store — Prisma Schema
+// Магазин цифровых товаров с внутренней валютой PRX
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// ── Enums ────────────────────────────────────────────────────
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+}
+
+// ── User ─────────────────────────────────────────────────────
+// Пользователь платформы. prxBalance — баланс внутренней валюты.
+
+model User {
+  id         String   @id @default(cuid())
+  name       String   @unique
+  email      String   @unique
+  password   String
+  image      String?
+  prxBalance Float    @default(0.0)
+  role       Role     @default(USER)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  orders       Order[]
+  transactions Transaction[]
+
+  @@index([role])
+}
+
+// ── Product ──────────────────────────────────────────────────
+// Витрина товара. Реальные ключи хранятся в Stock.
+
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  imageUrl    String?
+  pricePrx    Float
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  stocks Stock[]
+  orders Order[]
+
+  @@index([pricePrx])
+}
+
+// ── Stock ────────────────────────────────────────────────────
+// Конкретный экземпляр товара (ключ, аккаунт и т.д.)
+// content — содержимое, выдаётся после покупки.
+
+model Stock {
+  id        String   @id @default(cuid())
+  content   String
+  isSold    Boolean  @default(false)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  order     Order?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Композитный индекс для быстрого поиска свободных ключей:
+  // SELECT * FROM Stock WHERE productId = ? AND isSold = false LIMIT 1
+  @@index([productId, isSold])
+}
+
+// ── Order ────────────────────────────────────────────────────
+// Запись о покупке. stockId уникален — один ключ продаётся один раз.
+
+model Order {
+  id        String   @id @default(cuid())
+  userId    String
+  productId String
+  stockId   String   @unique
+  costPrx   Float
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  stock   Stock   @relation(fields: [stockId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@index([productId])
+}
+
+// ── Transaction ──────────────────────────────────────────────
+// История пополнений баланса через MoneyMotion.
+// moneymotionId уникален — идемпотентность (защита от двойного начисления).
+
+model Transaction {
+  id            String            @id @default(cuid())
+  userId        String
+  amountPrx     Float
+  moneymotionId String            @unique
+  status        TransactionStatus @default(PENDING)
+  type          TransactionType   @default(DEPOSIT)
+  createdAt     DateTime          @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+}
+
+// ── PaymentMethod ────────────────────────────────────────────
+// Настраиваемые способы оплаты. Admin включает/выключает из панели.
+
+model PaymentMethod {
+  id          String   @id @default(cuid())
+  code        String   @unique          // "stripe", "moneymotion", "paypal", etc.
+  name        String                    // "Card (Stripe)"
+  description String   @default("")     // "Visa, Mastercard, Amex"
+  icon        String   @default("")     // SVG icon identifier
+  enabled     Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
