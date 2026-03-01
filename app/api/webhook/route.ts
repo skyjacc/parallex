@@ -3,113 +3,84 @@ import { db } from "@/lib/db";
 import crypto from "crypto";
 
 /**
- * MoneyMotion Webhook Handler
- * Events: complete, disputed, failed, fraud, new, refunded, created, released
+ * MoneyMotion Webhook Handler (per docs.moneymotion.io)
+ *
+ * Events:
+ *   checkout_session:new       — informational
+ *   checkout_session:complete   — credit PRX
+ *   checkout_session:expired    — mark FAILED
+ *   checkout_session:refunded   — deduct PRX
+ *   checkout_session:disputed   — deduct PRX
+ *
+ * Signature: HMAC-SHA512, base64-encoded
  */
 
-// Events that credit the user's balance
-const CREDIT_EVENTS = ["complete"];
-// Events that mark transaction as permanently failed
-const FAIL_EVENTS = ["fraud", "expired"];
-// Events that represent a failed payment attempt but the session stays open
-const ATTEMPT_FAIL_EVENTS = ["payment:failed", "checkout_session:failed", "failed"];
-// Events that trigger refund (deduct balance back)
-const REFUND_EVENTS = ["refunded", "disputed"];
-// Events that are informational only (no balance change)
-const INFO_EVENTS = ["new", "created", "released"];
+function verifySignature(rawBody: string, signatureHeader: string, secret: string): boolean {
+    const computed = crypto.createHmac("sha512", secret).update(rawBody).digest("base64");
+    try {
+        return crypto.timingSafeEqual(Buffer.from(computed), Buffer.from(signatureHeader));
+    } catch {
+        return false;
+    }
+}
 
 export async function POST(req: Request) {
     try {
         const rawBody = await req.text();
 
-        // Log all incoming headers for debugging signature issues
-        const allHeaders: Record<string, string> = {};
-        req.headers.forEach((v, k) => { allHeaders[k] = v; });
-        console.log("[WEBHOOK] Headers:", JSON.stringify(allHeaders));
-        console.log("[WEBHOOK] Body preview:", rawBody.slice(0, 300));
-
-        // ── Signature verification ───────────────────────────────
+        // ── Verify HMAC-SHA512 base64 signature (per MM docs) ────
         const webhookSecret = process.env.MONEYMOTION_WEBHOOK_SECRET;
+        if (!webhookSecret) {
+            console.error("[WEBHOOK] MONEYMOTION_WEBHOOK_SECRET not configured");
+            return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
+        }
 
-        if (webhookSecret) {
-            const signature = req.headers.get("x-moneymotion-signature")
-                || req.headers.get("x-webhook-signature")
-                || req.headers.get("x-signature")
-                || req.headers.get("signature");
+        const signature = req.headers.get("x-moneymotion-signature")
+            || req.headers.get("x-webhook-signature")
+            || req.headers.get("x-signature")
+            || req.headers.get("signature");
 
-            if (signature) {
-                const sigClean = signature.replace(/^sha256=|^sha512=/, "");
-
-                const sha256 = crypto.createHmac("sha256", webhookSecret).update(rawBody).digest("hex");
-                const sha512 = crypto.createHmac("sha512", webhookSecret).update(rawBody).digest("hex");
-
-                const valid = sigClean === sha256 || sigClean === sha512
-                    || signature === sha256 || signature === sha512;
-
-                if (!valid) {
-                    console.error("[WEBHOOK] Signature mismatch");
-                    console.error("[WEBHOOK] Received sig:", signature);
-                    console.error("[WEBHOOK] Expected sha256:", sha256);
-                    console.error("[WEBHOOK] Expected sha512:", sha512);
-
-                    if (process.env.WEBHOOK_SKIP_SIGNATURE !== "true") {
-                        return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
-                    }
-                    console.warn("[WEBHOOK] WEBHOOK_SKIP_SIGNATURE=true — bypassing check");
-                }
-            } else {
-                console.warn("[WEBHOOK] No signature header found in request");
-                if (process.env.WEBHOOK_SKIP_SIGNATURE !== "true") {
-                    return NextResponse.json({ error: "Missing signature" }, { status: 401 });
-                }
-                console.warn("[WEBHOOK] WEBHOOK_SKIP_SIGNATURE=true — bypassing check");
-            }
-        } else {
-            console.warn("[WEBHOOK] MONEYMOTION_WEBHOOK_SECRET not set — skipping verification");
+        if (!signature || !verifySignature(rawBody, signature, webhookSecret)) {
+            console.error("[WEBHOOK] Signature mismatch or missing");
+            return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
         }
 
         // ── Parse payload ───────────────────────────────────────
         const payload = JSON.parse(rawBody);
 
-        // MoneyMotion sends event as "checkout_session:complete" and checkoutSession.id
-        let event = payload.event || payload.status || payload.type;
-        const txId = payload.checkoutSession?.id || payload.moneymotionId || payload.transaction_id || payload.id || payload.metadata?.moneymotionId;
+        const fullEvent: string = payload.event || "";
+        const txId: string = payload.checkoutSession?.id || "";
 
-        if (event && event.startsWith("checkout_session:")) {
-            event = event.split(":")[1]; // converts "checkout_session:complete" to "complete"
+        if (!fullEvent) {
+            console.error("[WEBHOOK] Missing event:", JSON.stringify(payload).slice(0, 200));
+            return NextResponse.json({ error: "Missing event" }, { status: 400 });
         }
-
-        if (!event) {
-            console.error("[WEBHOOK] Missing event type in payload:", JSON.stringify(payload).slice(0, 200));
-            return NextResponse.json({ error: "Missing event type" }, { status: 400 });
-        }
-
         if (!txId) {
-            console.error("[WEBHOOK] Missing transaction ID in payload:", JSON.stringify(payload).slice(0, 200));
+            console.error("[WEBHOOK] Missing checkoutSession.id:", JSON.stringify(payload).slice(0, 200));
             return NextResponse.json({ error: "Missing transaction ID" }, { status: 400 });
         }
 
-        console.log(`[WEBHOOK] Event: ${event} | TX: ${txId}`);
+        console.log(`[WEBHOOK] ${fullEvent} | session=${txId}`);
 
-        // ── Find transaction ────────────────────────────────────
+        // ── Find our transaction by moneymotionId ────────────────
         const transaction = await db.transaction.findUnique({
             where: { moneymotionId: txId },
         });
 
+        // ── checkout_session:new — may arrive before we create tx ─
+        if (fullEvent === "checkout_session:new") {
+            console.log(`[WEBHOOK] new session ${txId} — acknowledged`);
+            return NextResponse.json({ ok: true });
+        }
+
         if (!transaction) {
-            // INFO events (new/created) might arrive before we create the transaction
-            if (INFO_EVENTS.includes(event)) {
-                console.log(`[WEBHOOK] Info event "${event}" for unknown TX ${txId} — ignored`);
-                return NextResponse.json({ ok: true, message: "Acknowledged" });
-            }
-            console.error(`[WEBHOOK] Transaction not found: ${txId}`);
+            console.error(`[WEBHOOK] Transaction not found for session ${txId}`);
             return NextResponse.json({ error: "Transaction not found" }, { status: 404 });
         }
 
-        // ── Handle CREDIT events (complete) ─────────────────────
-        if (CREDIT_EVENTS.includes(event)) {
+        // ── checkout_session:complete — credit PRX ───────────────
+        if (fullEvent === "checkout_session:complete") {
             if (transaction.status === "COMPLETED") {
-                console.log(`[WEBHOOK] TX ${txId} already completed — idempotent skip`);
                 return NextResponse.json({ ok: true, message: "Already processed" });
             }
 
@@ -124,14 +95,15 @@ export async function POST(req: Request) {
                 }),
             ]);
 
-            console.log(`[WEBHOOK] ✅ ${transaction.amountPrx} PRX credited to user ${transaction.userId}`);
+            const lastFour = payload.customer?.paymentMethodInfo?.lastFourDigits || null;
+            const cardBrand = payload.customer?.paymentMethodInfo?.cardBrand || null;
+            console.log(`[WEBHOOK] +${transaction.amountPrx} PRX -> user ${transaction.userId} (card: ${cardBrand} ****${lastFour})`);
             return NextResponse.json({ ok: true, credited: transaction.amountPrx });
         }
 
-        // ── Handle FAIL events (fraud, expired) ──────────────────
-        if (FAIL_EVENTS.includes(event)) {
+        // ── checkout_session:expired — mark FAILED ───────────────
+        if (fullEvent === "checkout_session:expired") {
             if (transaction.status !== "PENDING") {
-                console.log(`[WEBHOOK] TX ${txId} not pending (${transaction.status}) — skip fail`);
                 return NextResponse.json({ ok: true, message: "Already processed" });
             }
 
@@ -140,53 +112,21 @@ export async function POST(req: Request) {
                 data: { status: "FAILED" },
             });
 
-            console.log(`[WEBHOOK] ❌ TX ${txId} marked as FAILED (event: ${event})`);
+            console.log(`[WEBHOOK] expired ${txId} -> FAILED`);
             return NextResponse.json({ ok: true });
         }
 
-        // ── Handle ATTEMPT FAIL events (failed) ──────────────────
-        if (ATTEMPT_FAIL_EVENTS.includes(event)) {
-            if (transaction.status !== "PENDING") {
-                return NextResponse.json({ ok: true, message: "Transaction no longer pending, ignoring attempt fail" });
-            }
-
-            // Extract reason 
-            const reason = payload.payment?.declineReason || payload.reason || "Payment declined";
-            const lastFour = payload.payment?.paymentMethod?.last4 || payload.lastFourDigits || null;
-
-            const newAttempt = {
-                reason,
-                lastFour,
-                time: new Date().toISOString()
-            };
-
-            const existingAttempts = Array.isArray(transaction.failedAttempts) ? transaction.failedAttempts : [];
-
-            await db.transaction.update({
-                where: { id: transaction.id },
-                data: {
-                    failedAttempts: [...existingAttempts, newAttempt]
-                }
-            });
-
-            console.log(`[WEBHOOK] ⚠️ TX ${txId} failed attempt recorded: ${reason}`);
-            return NextResponse.json({ ok: true });
-        }
-
-        // ── Handle REFUND events (refunded, disputed) ───────────
-        if (REFUND_EVENTS.includes(event)) {
+        // ── checkout_session:refunded / disputed — deduct PRX ────
+        if (fullEvent === "checkout_session:refunded" || fullEvent === "checkout_session:disputed") {
             if (transaction.status !== "COMPLETED") {
-                console.log(`[WEBHOOK] TX ${txId} not completed — cannot refund`);
                 return NextResponse.json({ ok: true, message: "Nothing to refund" });
             }
 
             const user = await db.user.findUnique({ where: { id: transaction.userId } });
             if (!user) {
-                console.error(`[WEBHOOK] User not found for refund: ${transaction.userId}`);
                 return NextResponse.json({ error: "User not found" }, { status: 404 });
             }
 
-            // Ensure balance doesn't go below 0 (prevents negative balance exploit)
             const newBalance = Math.max(0, user.prxBalance - transaction.amountPrx);
 
             await db.$transaction([
@@ -200,21 +140,15 @@ export async function POST(req: Request) {
                 }),
             ]);
 
-            console.log(`[WEBHOOK] 🔄 ${transaction.amountPrx} PRX deducted from user ${transaction.userId} (New Balance: ${newBalance}) (${event})`);
+            console.log(`[WEBHOOK] ${fullEvent} ${txId}: -${transaction.amountPrx} PRX (balance: ${newBalance})`);
             return NextResponse.json({ ok: true, refunded: transaction.amountPrx });
         }
 
-        // ── Handle INFO events (new, created, released) ─────────
-        if (INFO_EVENTS.includes(event)) {
-            console.log(`[WEBHOOK] ℹ️ Info event "${event}" for TX ${txId}`);
-            return NextResponse.json({ ok: true, message: "Acknowledged" });
-        }
-
         // ── Unknown event ───────────────────────────────────────
-        console.warn(`[WEBHOOK] Unknown event type: ${event}`);
-        return NextResponse.json({ ok: true, message: "Unknown event — ignored" });
+        console.warn(`[WEBHOOK] Unknown event: ${fullEvent}`);
+        return NextResponse.json({ ok: true, message: "Unknown event" });
     } catch (error) {
-        console.error("[WEBHOOK] Unhandled error:", error);
+        console.error("[WEBHOOK] Error:", error);
         return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 });
     }
 }
