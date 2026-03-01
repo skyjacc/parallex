@@ -43,9 +43,13 @@ export async function POST(req: Request) {
         // ── Parse payload ───────────────────────────────────────
         const payload = JSON.parse(rawBody);
 
-        // MoneyMotion can send event in different field names
-        const event = payload.event || payload.status || payload.type;
-        const txId = payload.moneymotionId || payload.transaction_id || payload.id || payload.metadata?.moneymotionId;
+        // MoneyMotion sends event as "checkout_session:complete" and checkoutSession.id
+        let event = payload.event || payload.status || payload.type;
+        const txId = payload.checkoutSession?.id || payload.moneymotionId || payload.transaction_id || payload.id || payload.metadata?.moneymotionId;
+
+        if (event && event.startsWith("checkout_session:")) {
+            event = event.split(":")[1]; // converts "checkout_session:complete" to "complete"
+        }
 
         if (!event) {
             console.error("[WEBHOOK] Missing event type in payload:", JSON.stringify(payload).slice(0, 200));

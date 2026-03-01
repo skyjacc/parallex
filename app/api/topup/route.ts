@@ -79,7 +79,7 @@ export async function POST(req: Request) {
         const moneymotionId = `mm_${Date.now()}_${crypto.randomUUID()}`;
 
         // ── Gateway-specific logic ──────────────────────────────
-        const gatewayHandlers: Record<string, () => Promise<{ redirectUrl?: string; error?: string }>> = {
+        const gatewayHandlers: Record<string, () => Promise<{ redirectUrl?: string; checkoutSessionId?: string; error?: string }>> = {
             moneymotion: async () => {
                 const apiKey = process.env.MONEYMOTION_API_KEY;
                 if (!apiKey || apiKey === "your-moneymotion-api-key") {
@@ -88,24 +88,42 @@ export async function POST(req: Request) {
                 }
 
                 try {
-                    const mmRes = await fetch("https://api.moneymotion.io/v1/checkout/sessions", {
+                    const mmRes = await fetch("https://api.moneymotion.io/checkoutSessions.createCheckoutSession", {
                         method: "POST",
                         headers: {
                             "Content-Type": "application/json",
                             "Authorization": `Bearer ${apiKey}`,
                         },
                         body: JSON.stringify({
-                            amount: Math.round(usdAmount * 100),
-                            currency: "usd",
-                            metadata: { moneymotionId, userId: user.id, prxAmount: totalPrx },
-                            success_url: `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/topup?success=true&session=${moneymotionId}`,
-                            cancel_url: `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/topup?cancelled=true`,
+                            json: {
+                                description: `PRX Top-up - ${prxAmount} PRX`,
+                                urls: {
+                                    success: `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/topup?success=true`,
+                                    cancel: `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/topup?cancelled=true`,
+                                    failure: `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/topup?cancelled=true`,
+                                },
+                                userInfo: {
+                                    email: user.email,
+                                },
+                                lineItems: [
+                                    {
+                                        name: "PRX Top-up",
+                                        description: `${prxAmount} PRX (+${bonusPrx} bonus)`,
+                                        pricePerItemInCents: Math.round(usdAmount * 100),
+                                        quantity: 1,
+                                    },
+                                ],
+                            },
                         }),
                     });
 
                     if (mmRes.ok) {
                         const mmData = await mmRes.json();
-                        return { redirectUrl: mmData.url || mmData.checkout_url };
+                        const checkoutSessionId = mmData?.result?.data?.json?.checkoutSessionId;
+
+                        if (checkoutSessionId) {
+                            return { checkoutSessionId, redirectUrl: `https://moneymotion.io/checkout/${checkoutSessionId}` };
+                        }
                     }
 
                     const errBody = await mmRes.text().catch(() => "");
@@ -162,11 +180,13 @@ export async function POST(req: Request) {
         }
 
         // ── Success — create transaction ────────────────────────
+        const finalTxId = result.checkoutSessionId || moneymotionId;
+
         await db.transaction.create({
             data: {
                 userId: user.id,
                 amountPrx: totalPrx,
-                moneymotionId,
+                moneymotionId: finalTxId,
                 status: "PENDING",
                 type: "DEPOSIT",
             },
