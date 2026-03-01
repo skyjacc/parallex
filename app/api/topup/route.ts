@@ -93,6 +93,7 @@ export async function POST(req: Request) {
                         headers: {
                             "Content-Type": "application/json",
                             "x-api-key": apiKey,
+                            "x-currency": "usd",
                         },
                         body: JSON.stringify({
                             json: {
