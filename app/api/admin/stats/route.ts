@@ -10,15 +10,40 @@ export async function GET() {
     }
 
     try {
-        const [totalUsers, totalOrders, totalProducts, revenue, recentOrders] = await Promise.all([
+        const [
+            totalUsers,
+            totalOrders,
+            totalProducts,
+            revenue,
+            totalStock,
+            availableStock,
+            txCompleted,
+            txPending,
+            txFailed,
+            recentOrders,
+            topProductsRaw,
+        ] = await Promise.all([
             db.user.count(),
             db.order.count(),
             db.product.count(),
             db.order.aggregate({ _sum: { costPrx: true } }),
+            db.stock.count(),
+            db.stock.count({ where: { isSold: false } }),
+            db.transaction.count({ where: { status: "COMPLETED" } }),
+            db.transaction.count({ where: { status: "PENDING" } }),
+            db.transaction.count({ where: { status: "FAILED" } }),
             db.order.findMany({
                 take: 10,
                 orderBy: { createdAt: "desc" },
-                include: { user: { select: { name: true, email: true } }, product: { select: { name: true } } },
+                include: {
+                    user: { select: { name: true, email: true } },
+                    product: { select: { name: true } },
+                },
+            }),
+            db.product.findMany({
+                include: { _count: { select: { orders: true } } },
+                orderBy: { orders: { _count: "desc" } },
+                take: 5,
             }),
         ]);
 
@@ -29,6 +54,9 @@ export async function GET() {
                 totalOrders,
                 totalProducts,
                 totalRevenue: revenue._sum.costPrx || 0,
+                totalStock,
+                availableStock,
+                transactions: { completed: txCompleted, pending: txPending, failed: txFailed },
                 recentOrders: recentOrders.map((o) => ({
                     id: o.id,
                     userName: o.user.name,
@@ -36,6 +64,11 @@ export async function GET() {
                     productName: o.product.name,
                     costPrx: o.costPrx,
                     createdAt: o.createdAt.toISOString(),
+                })),
+                topProducts: topProductsRaw.map((p) => ({
+                    name: p.name,
+                    sales: p._count.orders,
+                    pricePrx: p.pricePrx,
                 })),
             },
         });

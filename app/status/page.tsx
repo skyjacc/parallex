@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { Shield, CheckCircle, Loader2 } from "lucide-react";
+import { Shield, CheckCircle, XCircle, Loader2, RefreshCw, Zap, Clock } from "lucide-react";
 
 interface Product {
     id: string;
@@ -16,16 +16,32 @@ interface Product {
 export default function StatusPage() {
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
+    const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+    const [refreshing, setRefreshing] = useState(false);
 
-    useEffect(() => {
-        fetch("/api/products")
-            .then((r) => r.json())
-            .then((data) => { if (data.ok) setProducts(data.products); })
-            .finally(() => setLoading(false));
+    const loadProducts = useCallback(async (showSpinner = false) => {
+        if (showSpinner) setRefreshing(true);
+        try {
+            const r = await fetch("/api/products");
+            const data = await r.json();
+            if (data.ok) setProducts(data.products);
+            setLastUpdate(new Date());
+        } catch { /* ignore */ }
+        setRefreshing(false);
+        setLoading(false);
     }, []);
 
-    const availableCount = products.filter((p) => p.available > 0).length;
-    const soldOutCount = products.filter((p) => p.available === 0).length;
+    useEffect(() => { loadProducts(); }, [loadProducts]);
+
+    useEffect(() => {
+        const iv = setInterval(() => loadProducts(), 30_000);
+        return () => clearInterval(iv);
+    }, [loadProducts]);
+
+    const available = products.filter((p) => p.available > 0);
+    const soldOut = products.filter((p) => p.available === 0);
+    const totalKeys = products.reduce((s, p) => s + p.available, 0);
+    const allOnline = available.length > 0;
 
     if (loading) {
         return (
@@ -38,54 +54,74 @@ export default function StatusPage() {
     return (
         <div className="flex flex-col items-center w-full px-4 py-8">
             <div className="max-w-4xl w-full">
-                <div className="mb-8">
-                    <div className="flex items-center gap-3 mb-2">
-                        <Shield size={24} className="text-primary" />
-                        <h1 className="text-2xl font-bold">Product Status</h1>
+                <div className="flex items-start justify-between mb-8">
+                    <div>
+                        <div className="flex items-center gap-3 mb-2">
+                            <Shield size={24} className="text-primary" />
+                            <h1 className="text-2xl font-bold">Product Status</h1>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                            Real-time stock and availability. Auto-refreshes every 30 seconds.
+                        </p>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                        Real-time stock status of all products. Click on any product to view details.
-                    </p>
+                    <button
+                        onClick={() => loadProducts(true)}
+                        disabled={refreshing}
+                        className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border rounded-md px-2.5 py-1.5 transition-colors cursor-pointer shrink-0"
+                    >
+                        <RefreshCw size={12} className={refreshing ? "animate-spin" : ""} />
+                        Refresh
+                    </button>
                 </div>
 
-                {/* Summary */}
-                <div className="grid grid-cols-3 gap-4 mb-8">
-                    <div className="rounded-xl border bg-card p-4 text-center">
-                        <div className="flex items-center justify-center gap-2 mb-1">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                            <span className="text-lg font-bold">{availableCount}</span>
-                        </div>
-                        <span className="text-xs text-muted-foreground">In Stock</span>
-                    </div>
-                    <div className="rounded-xl border bg-card p-4 text-center">
-                        <div className="flex items-center justify-center gap-2 mb-1">
-                            <span className="w-2 h-2 rounded-full bg-red-500" />
-                            <span className="text-lg font-bold">{soldOutCount}</span>
-                        </div>
-                        <span className="text-xs text-muted-foreground">Sold Out</span>
-                    </div>
+                {/* Summary cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
                     <div className="rounded-xl border bg-card p-4 text-center">
                         <div className="flex items-center justify-center gap-2 mb-1">
                             <span className="w-2 h-2 rounded-full bg-primary" />
                             <span className="text-lg font-bold">{products.length}</span>
                         </div>
-                        <span className="text-xs text-muted-foreground">Total</span>
+                        <span className="text-[11px] text-muted-foreground">Total Products</span>
+                    </div>
+                    <div className="rounded-xl border bg-card p-4 text-center">
+                        <div className="flex items-center justify-center gap-2 mb-1">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                            <span className="text-lg font-bold">{available.length}</span>
+                        </div>
+                        <span className="text-[11px] text-muted-foreground">In Stock</span>
+                    </div>
+                    <div className="rounded-xl border bg-card p-4 text-center">
+                        <div className="flex items-center justify-center gap-2 mb-1">
+                            <span className="w-2 h-2 rounded-full bg-red-500" />
+                            <span className="text-lg font-bold">{soldOut.length}</span>
+                        </div>
+                        <span className="text-[11px] text-muted-foreground">Sold Out</span>
+                    </div>
+                    <div className="rounded-xl border bg-card p-4 text-center">
+                        <div className="flex items-center justify-center gap-2 mb-1">
+                            <Zap size={14} className="text-primary" />
+                            <span className="text-lg font-bold">{totalKeys}</span>
+                        </div>
+                        <span className="text-[11px] text-muted-foreground">Keys Available</span>
                     </div>
                 </div>
 
-                {/* Overall status */}
-                <div className="flex items-center gap-3 mb-6 rounded-lg border bg-card px-4 py-3">
+                {/* Status banner */}
+                <div className={`flex items-center gap-3 mb-6 rounded-lg border px-4 py-3 ${allOnline ? "bg-card" : "bg-red-500/5 border-red-500/20"}`}>
                     <span className="relative flex h-2.5 w-2.5">
-                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
-                        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                        <span className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${allOnline ? "bg-emerald-500" : "bg-red-500"}`} />
+                        <span className={`relative inline-flex h-2.5 w-2.5 rounded-full ${allOnline ? "bg-emerald-500" : "bg-red-500"}`} />
                     </span>
-                    <span className="text-sm font-medium">All systems operational</span>
-                    <span className="ml-auto text-xs text-muted-foreground">Last check: just now</span>
+                    <span className="text-sm font-medium">{allOnline ? "All products operational" : "Some products out of stock"}</span>
+                    <span className="ml-auto text-[10px] text-muted-foreground flex items-center gap-1">
+                        <Clock size={10} />
+                        {lastUpdate.toLocaleTimeString()}
+                    </span>
                 </div>
 
-                {/* Product list */}
+                {/* Product table */}
                 <div className="rounded-xl border bg-card overflow-hidden">
-                    <div className="hidden sm:grid grid-cols-[1fr_100px_100px_80px] gap-4 px-4 py-3 border-b bg-muted/30 text-xs font-medium text-muted-foreground">
+                    <div className="hidden sm:grid grid-cols-[1fr_110px_90px_70px] gap-4 px-4 py-3 border-b bg-muted/30 text-xs font-medium text-muted-foreground">
                         <span>Product</span>
                         <span>Status</span>
                         <span>Price</span>
@@ -96,27 +132,39 @@ export default function StatusPage() {
                         <Link
                             key={product.id}
                             href={`/shop/${product.id}`}
-                            className="grid grid-cols-1 sm:grid-cols-[1fr_100px_100px_80px] gap-2 sm:gap-4 px-4 py-3 border-b last:border-b-0 hover:bg-muted/20 transition-colors items-center"
+                            className="grid grid-cols-1 sm:grid-cols-[1fr_110px_90px_70px] gap-2 sm:gap-4 px-4 py-3 border-b last:border-b-0 hover:bg-muted/20 transition-colors items-center"
                         >
-                            <div className="flex flex-col">
-                                <span className="text-sm font-medium">{product.name}</span>
-                                <span className="text-[11px] text-muted-foreground line-clamp-1">{product.description}</span>
+                            <div className="flex items-center gap-3">
+                                <span className={`w-1.5 h-8 rounded-full shrink-0 ${product.available > 0 ? "bg-emerald-500" : "bg-red-500"}`} />
+                                <div className="min-w-0">
+                                    <span className="text-sm font-medium block truncate">{product.name}</span>
+                                    <span className="text-[11px] text-muted-foreground line-clamp-1">{product.description}</span>
+                                </div>
                             </div>
                             <div>
-                                <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-md bg-muted/50 ${product.available > 0 ? "text-emerald-400" : "text-red-400"}`}>
-                                    <CheckCircle size={12} />
-                                    {product.available > 0 ? `${product.available} keys` : "Sold out"}
-                                </span>
+                                {product.available > 0 ? (
+                                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-400">
+                                        <CheckCircle size={12} />
+                                        {product.available} keys
+                                    </span>
+                                ) : (
+                                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-red-400">
+                                        <XCircle size={12} />
+                                        Sold out
+                                    </span>
+                                )}
                             </div>
-                            <span className="text-xs font-mono text-muted-foreground">{product.pricePrx} PRX</span>
-                            <span className="text-xs text-muted-foreground">{product.totalSold} sold</span>
+                            <span className="text-xs font-mono text-muted-foreground flex items-center gap-1">
+                                <Zap size={10} className="text-primary" />
+                                {product.pricePrx}
+                            </span>
+                            <span className="text-xs text-muted-foreground">{product.totalSold}</span>
                         </Link>
                     ))}
                 </div>
 
-                <div className="mt-6 text-center text-xs text-muted-foreground">
-                    <p>Stock updates are real-time from our database.</p>
-                    <p className="mt-1">© 2026 Parallax. All rights reserved.</p>
+                <div className="mt-6 text-center text-[11px] text-muted-foreground">
+                    Auto-refreshes every 30 seconds. Data is live from the database.
                 </div>
             </div>
         </div>
