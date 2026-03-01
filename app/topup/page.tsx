@@ -173,6 +173,12 @@ function TopUpContent() {
         }
 
         setProcessing(true);
+        // Open the tab synchronously during the click event to avoid popup blockers
+        const paymentWindow = window.open("", "_blank");
+        if (paymentWindow) {
+            paymentWindow.document.write("Loading payment gateway...");
+        }
+
         try {
             const res = await fetch("/api/topup", {
                 method: "POST",
@@ -182,6 +188,7 @@ function TopUpContent() {
             const data = await res.json();
 
             if (!data.ok) {
+                if (paymentWindow) paymentWindow.close();
                 toast.error(data.error || "Failed to create payment");
                 // If admin, show extra debug info
                 if (data._admin) {
@@ -195,16 +202,26 @@ function TopUpContent() {
 
             if (data.redirectUrl && data.transactionId) {
                 toast.loading("Opening payment window...");
-                // Open in new tab
-                window.open(data.redirectUrl, "_blank");
+                // Set the URL of the tab we just opened
+                if (paymentWindow) {
+                    paymentWindow.location.href = data.redirectUrl;
+                } else {
+                    // Fallback if popup was fully blocked
+                    window.location.href = data.redirectUrl;
+                }
                 // Start polling
                 setPollingTxId(data.transactionId);
                 setPollStatus({ status: "PENDING" });
             } else if (data.redirectUrl) {
                 // Fallback for older transactions
-                window.location.href = data.redirectUrl;
+                if (paymentWindow) {
+                    paymentWindow.location.href = data.redirectUrl;
+                } else {
+                    window.location.href = data.redirectUrl;
+                }
             }
         } catch {
+            if (paymentWindow) paymentWindow.close();
             toast.error("Network error. Please try again.");
         } finally {
             setProcessing(false);
