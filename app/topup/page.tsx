@@ -56,7 +56,7 @@ export default function TopUpPage() {
 }
 
 function TopUpContent() {
-    const { data: session } = useSession();
+    const { data: session, update } = useSession();
     const router = useRouter();
     const searchParams = useSearchParams();
 
@@ -72,7 +72,9 @@ function TopUpContent() {
         reason?: string | null;
         lastFour?: string | null;
         failedAttempts?: any[];
+        amountPrx?: number;
     } | null>(null);
+    const [pollElapsed, setPollElapsed] = useState(0);
 
     const balance = (session?.user as any)?.prxBalance ?? 0;
     const prxAmount = Number(inputPrx) || 0;
@@ -91,35 +93,30 @@ function TopUpContent() {
 
     // Polling logic
     useEffect(() => {
-        if (!pollingTxId) return;
+        if (!pollingTxId) { setPollElapsed(0); return; }
 
-        const interval = setInterval(async () => {
+        const startTime = Date.now();
+        const tick = setInterval(() => setPollElapsed(Math.floor((Date.now() - startTime) / 1000)), 1000);
+
+        const poll = setInterval(async () => {
             try {
                 const res = await fetch(`/api/topup/status?txId=${pollingTxId}`);
                 if (res.ok) {
                     const data = await res.json();
                     if (data.status === "COMPLETED") {
-                        setPollStatus({ status: "COMPLETED" });
+                        setPollStatus({ status: "COMPLETED", amountPrx: data.amountPrx });
                         setPollingTxId(null);
-
-                        // Fake-update balance to give instant feedback before next-auth syncs
-                        const currentSession = session as any;
-                        if (currentSession?.user) {
-                            currentSession.user.prxBalance += data.amountPrx || totalPrx;
-                        }
-
-                        // Close modal after 3 seconds
-                        setTimeout(() => setPollStatus(null), 3000);
-                    } else if (data.status === "FAILED") {
+                        update();
+                    } else if (data.status === "FAILED" || data.status === "EXPIRED") {
                         setPollStatus({
-                            status: "FAILED",
-                            reason: data.failureReason,
+                            status: data.status === "EXPIRED" ? "EXPIRED" : "FAILED",
+                            reason: data.status === "EXPIRED" ? "Payment session expired. Please try again." : data.failureReason,
                             lastFour: data.lastFourDigits,
-                            failedAttempts: data.failedAttempts
+                            failedAttempts: data.failedAttempts,
                         });
                         setPollingTxId(null);
-                    } else if (data.status === "PENDING" && data.failedAttempts?.length > 0) {
-                        setPollStatus(prev => prev ? { ...prev, failedAttempts: data.failedAttempts } : null);
+                    } else if (data.status === "PENDING") {
+                        setPollStatus(prev => ({ ...prev!, failedAttempts: data.failedAttempts || [] }));
                     }
                 }
             } catch (err) {
@@ -127,8 +124,8 @@ function TopUpContent() {
             }
         }, 3000);
 
-        return () => clearInterval(interval);
-    }, [pollingTxId, session, totalPrx]);
+        return () => { clearInterval(poll); clearInterval(tick); };
+    }, [pollingTxId]);
 
 
     // Handle success/cancelled from redirect
@@ -455,23 +452,25 @@ function TopUpContent() {
                                         <Loader2 size={32} className="text-primary animate-spin" />
                                     </div>
                                     <h2 className="text-xl font-semibold mb-2">Waiting for Payment</h2>
-                                    <p className="text-sm text-muted-foreground mb-4">
-                                        Please complete the payment in the new tab.
-                                        This window will update automatically once payment is detected.
+                                    <p className="text-sm text-muted-foreground mb-1">
+                                        Complete the payment in the new tab.
+                                    </p>
+                                    <p className="text-xs text-muted-foreground/60 mb-4 font-mono tabular-nums">
+                                        {Math.floor(pollElapsed / 60).toString().padStart(2, "0")}:{(pollElapsed % 60).toString().padStart(2, "0")} elapsed
                                     </p>
 
                                     {pollStatus.failedAttempts && pollStatus.failedAttempts.length > 0 && (
-                                        <div className="text-left bg-red-500/5 border border-red-500/10 rounded-lg p-3 mb-6">
+                                        <div className="text-left bg-red-500/5 border border-red-500/10 rounded-lg p-3 mb-4">
                                             <p className="text-xs font-semibold text-red-500 mb-2 flex items-center gap-1.5">
                                                 <AlertTriangle size={14} />
-                                                Failed Attempts:
+                                                Failed Attempts ({pollStatus.failedAttempts.length}):
                                             </p>
                                             <ul className="text-xs text-muted-foreground space-y-2">
                                                 {pollStatus.failedAttempts.map((attempt: any, idx: number) => (
                                                     <li key={idx} className="flex flex-col">
                                                         <span className="font-medium text-foreground">{attempt.reason || "Payment declined"}</span>
                                                         {attempt.lastFour && (
-                                                            <span className="font-mono pt-0.5">Card •••• {attempt.lastFour}</span>
+                                                            <span className="font-mono pt-0.5">Card ending •••• {attempt.lastFour}</span>
                                                         )}
                                                     </li>
                                                 ))}
@@ -479,8 +478,12 @@ function TopUpContent() {
                                         </div>
                                     )}
 
+                                    <div className="w-full bg-muted/30 rounded-full h-1 mb-4 overflow-hidden">
+                                        <div className="h-full bg-primary/40 rounded-full animate-pulse" style={{ width: `${Math.min((pollElapsed / (30 * 60)) * 100, 100)}%` }} />
+                                    </div>
+
                                     <button
-                                        onClick={() => { setPollStatus(null); setPollingTxId(null); }}
+                                        onClick={() => { setPollStatus(null); setPollingTxId(null); setPollElapsed(0); }}
                                         className="text-sm text-muted-foreground hover:text-foreground underline transition-colors cursor-pointer"
                                     >
                                         Cancel
@@ -494,28 +497,47 @@ function TopUpContent() {
                                         <CheckCircle size={32} className="text-emerald-500" />
                                     </div>
                                     <h2 className="text-xl font-semibold mb-2">Payment Successful!</h2>
-                                    <p className="text-sm text-muted-foreground">
-                                        Your PRX balance has been updated.
+                                    <p className="text-sm text-muted-foreground mb-1">
+                                        {pollStatus.amountPrx ? `+${pollStatus.amountPrx.toLocaleString()} PRX` : "PRX"} credited to your account.
                                     </p>
+                                    <p className="text-xs text-muted-foreground/60 mb-5">Balance updated automatically.</p>
+                                    <button
+                                        onClick={() => { setPollStatus(null); setPollElapsed(0); router.push("/dashboard"); }}
+                                        className="w-full inline-flex items-center justify-center rounded-lg text-sm font-medium bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 h-10 px-4 transition-all cursor-pointer gap-2"
+                                    >
+                                        <Zap size={14} />
+                                        Go to Dashboard
+                                    </button>
                                 </>
                             )}
 
-                            {pollStatus.status === "FAILED" && (
+                            {(pollStatus.status === "FAILED" || pollStatus.status === "EXPIRED") && (
                                 <>
                                     <div className="mx-auto w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mb-4">
                                         <AlertTriangle size={32} className="text-red-500" />
                                     </div>
-                                    <h2 className="text-xl font-semibold mb-2">Payment Failed</h2>
+                                    <h2 className="text-xl font-semibold mb-2">
+                                        {pollStatus.status === "EXPIRED" ? "Session Expired" : "Payment Failed"}
+                                    </h2>
                                     <div className="text-sm text-muted-foreground mb-4 space-y-1">
                                         <p>{pollStatus.reason || "The payment was declined or cancelled."}</p>
                                         {pollStatus.lastFour && (
                                             <p className="font-mono bg-muted py-1 px-2 rounded-md inline-block mt-2 text-xs">
-                                                Card ending in •••• {pollStatus.lastFour}
+                                                Card ending •••• {pollStatus.lastFour}
                                             </p>
                                         )}
                                     </div>
+
+                                    {pollStatus.failedAttempts && pollStatus.failedAttempts.length > 0 && (
+                                        <div className="text-left bg-muted/30 rounded-lg p-3 mb-4">
+                                            <p className="text-xs font-medium text-muted-foreground mb-1">
+                                                {pollStatus.failedAttempts.length} failed attempt{pollStatus.failedAttempts.length > 1 ? "s" : ""} recorded
+                                            </p>
+                                        </div>
+                                    )}
+
                                     <button
-                                        onClick={() => { setPollStatus(null); setPollingTxId(null); }}
+                                        onClick={() => { setPollStatus(null); setPollingTxId(null); setPollElapsed(0); }}
                                         className="w-full inline-flex items-center justify-center rounded-lg text-sm font-medium bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 h-10 px-4 transition-all cursor-pointer"
                                     >
                                         Try Again

@@ -2,15 +2,23 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(
-    _req: Request,
+    req: Request,
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const session = await getServerSession(authOptions);
         if (!session?.user?.email) {
             return NextResponse.json({ ok: false, error: "You must be signed in to purchase" }, { status: 401 });
+        }
+
+        let ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
+        if (ip.includes(",")) ip = ip.split(",")[0].trim();
+        const key = `buy:${(session.user as any).id || ip}`;
+        if (!rateLimit(key, 60 * 1000, 10)) {
+            return NextResponse.json({ ok: false, error: "Too many purchase attempts. Please wait." }, { status: 429 });
         }
 
         const { id: productId } = await params;
