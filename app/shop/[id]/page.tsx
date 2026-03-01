@@ -18,6 +18,9 @@ import {
     Copy,
     Check,
     AlertTriangle,
+    Users,
+    Star,
+    RefreshCw,
 } from "lucide-react";
 
 interface Product {
@@ -38,10 +41,17 @@ interface BuyResult {
     newBalance: number;
 }
 
+const features = [
+    { icon: Shield, label: "Undetected", desc: "Tested against all major anti-cheats", color: "text-emerald-500" },
+    { icon: Zap, label: "Instant Delivery", desc: "Key delivered immediately after purchase", color: "text-primary" },
+    { icon: RefreshCw, label: "Free Updates", desc: "Automatic updates after game patches", color: "text-blue-400" },
+    { icon: Clock, label: "24/7 Support", desc: "Real human support around the clock", color: "text-amber-400" },
+];
+
 export default function ProductPage() {
     const { id } = useParams();
     const router = useRouter();
-    const { data: session } = useSession();
+    const { data: session, update } = useSession();
 
     const [product, setProduct] = useState<Product | null>(null);
     const [loading, setLoading] = useState(true);
@@ -76,6 +86,7 @@ export default function ProductPage() {
 
             if (data.ok) {
                 setBuyResult(data);
+                update();
                 toast.success("Purchase successful!", { description: `Key for ${data.productName} delivered.` });
             } else {
                 setError(data.error || "Purchase failed");
@@ -92,6 +103,7 @@ export default function ProductPage() {
         if (buyResult?.key) {
             navigator.clipboard.writeText(buyResult.key);
             setCopied(true);
+            toast.success("Key copied!");
             setTimeout(() => setCopied(false), 2000);
         }
     };
@@ -122,13 +134,11 @@ export default function ProductPage() {
     return (
         <div className="flex justify-center w-full flex-col items-center px-4 py-8">
             <div className="max-w-4xl w-full">
-                {/* Back link */}
                 <Link href="/shop" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6">
                     <ArrowLeft size={14} />
                     Back to Shop
                 </Link>
 
-                {/* Success state — show key */}
                 {buyResult ? (
                     <div className="rounded-2xl border bg-card overflow-hidden">
                         <div className="p-8 text-center border-b bg-emerald-500/5">
@@ -177,43 +187,56 @@ export default function ProductPage() {
                         </div>
                     </div>
                 ) : (
-                    /* Product detail card */
                     <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-                        {/* Left — Image */}
-                        <div className="lg:col-span-3 rounded-2xl border bg-card overflow-hidden">
-                            <div className="aspect-video bg-gradient-to-br from-primary/5 to-card flex items-center justify-center">
-                                <Gamepad2 size={64} className="text-muted-foreground/15" />
-                            </div>
-                            <div className="p-6">
-                                <h1 className="text-2xl font-bold mb-3">{product.name}</h1>
-                                <p className="text-muted-foreground text-sm leading-relaxed mb-6">{product.description}</p>
-
-                                {/* Features */}
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="flex items-center gap-2.5 text-sm">
-                                        <Shield size={16} className="text-emerald-500 shrink-0" />
-                                        <span>Undetected & safe</span>
+                        {/* Left — Product details */}
+                        <div className="lg:col-span-3 flex flex-col gap-6">
+                            <div className="rounded-2xl border bg-card overflow-hidden">
+                                <div className="aspect-[2/1] bg-gradient-to-br from-primary/5 via-card to-primary/3 flex items-center justify-center relative">
+                                    <Gamepad2 size={72} className="text-muted-foreground/10" />
+                                    <div className="absolute top-3 left-3">
+                                        <span className={`text-[10px] border rounded px-2 py-1 font-medium ${product.available > 0 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-red-500/10 text-red-400 border-red-500/20"}`}>
+                                            {product.available > 0 ? `${product.available} in stock` : "Out of stock"}
+                                        </span>
                                     </div>
-                                    <div className="flex items-center gap-2.5 text-sm">
-                                        <Zap size={16} className="text-primary shrink-0" />
-                                        <span>Instant delivery</span>
-                                    </div>
-                                    <div className="flex items-center gap-2.5 text-sm">
-                                        <Clock size={16} className="text-blue-400 shrink-0" />
-                                        <span>24/7 support</span>
-                                    </div>
-                                    <div className="flex items-center gap-2.5 text-sm">
-                                        <CheckCircle size={16} className="text-emerald-400 shrink-0" />
-                                        <span>Daily updates</span>
+                                    <div className="absolute bottom-3 right-3 bg-card/90 backdrop-blur border rounded-lg px-3 py-1.5 flex items-center gap-1.5">
+                                        <Zap size={14} className="text-primary" />
+                                        <span className="font-bold text-sm font-mono">{product.pricePrx} PRX</span>
                                     </div>
                                 </div>
+                                <div className="p-6">
+                                    <div className="flex items-start justify-between gap-4 mb-4">
+                                        <h1 className="text-2xl font-bold">{product.name}</h1>
+                                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0 mt-1">
+                                            <Users size={12} />
+                                            {product.totalSold} sold
+                                        </div>
+                                    </div>
+                                    <p className="text-muted-foreground text-sm leading-relaxed">{product.description}</p>
+                                </div>
+                            </div>
+
+                            {/* Features grid */}
+                            <div className="grid grid-cols-2 gap-3">
+                                {features.map((f) => {
+                                    const Icon = f.icon;
+                                    return (
+                                        <div key={f.label} className="rounded-xl border bg-card p-4 flex gap-3">
+                                            <div className="w-9 h-9 rounded-lg bg-muted/30 flex items-center justify-center shrink-0">
+                                                <Icon size={18} className={f.color} />
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-medium">{f.label}</p>
+                                                <p className="text-[11px] text-muted-foreground">{f.desc}</p>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
 
                         {/* Right — Purchase card */}
                         <div className="lg:col-span-2">
                             <div className="rounded-2xl border bg-card p-6 sticky top-20">
-                                {/* Price */}
                                 <div className="text-center mb-6">
                                     <div className="text-3xl font-bold font-mono flex items-center justify-center gap-2 mb-1">
                                         <Zap size={24} className="text-primary" />
@@ -226,38 +249,45 @@ export default function ProductPage() {
 
                                 <div className="h-px bg-border mb-5" />
 
-                                {/* Stock info */}
                                 <div className="flex justify-between text-sm mb-2">
                                     <span className="text-muted-foreground">Available</span>
                                     <span className={`font-medium ${product.available > 0 ? "text-emerald-400" : "text-red-400"}`}>
                                         {product.available > 0 ? `${product.available} keys` : "Out of stock"}
                                     </span>
                                 </div>
-                                <div className="flex justify-between text-sm mb-5">
+                                <div className="flex justify-between text-sm mb-2">
                                     <span className="text-muted-foreground">Total sold</span>
                                     <span className="font-mono">{product.totalSold}</span>
                                 </div>
+                                <div className="flex justify-between text-sm mb-5">
+                                    <span className="text-muted-foreground">Delivery</span>
+                                    <span className="text-emerald-400 flex items-center gap-1"><Zap size={12} /> Instant</span>
+                                </div>
 
-                                {/* Balance info (if logged in) */}
                                 {session?.user && (
                                     <div className="rounded-lg bg-muted/30 border p-3 mb-5">
                                         <div className="flex justify-between text-sm">
                                             <span className="text-muted-foreground">Your balance</span>
                                             <span className="font-mono flex items-center gap-1">
                                                 <Zap size={12} className="text-primary" />
-                                                {balance.toFixed(0)} PRX
+                                                {balance} PRX
                                             </span>
                                         </div>
+                                        {canAfford && product.available > 0 && (
+                                            <div className="flex justify-between text-sm mt-1.5">
+                                                <span className="text-muted-foreground">After purchase</span>
+                                                <span className="font-mono text-muted-foreground">{balance - product.pricePrx} PRX</span>
+                                            </div>
+                                        )}
                                         {!canAfford && product.available > 0 && (
                                             <p className="text-xs text-red-400 mt-2 flex items-center gap-1">
                                                 <AlertTriangle size={12} />
-                                                Insufficient balance. Need {(product.pricePrx - balance).toFixed(0)} more PRX.
+                                                Need {product.pricePrx - balance} more PRX
                                             </p>
                                         )}
                                     </div>
                                 )}
 
-                                {/* Error */}
                                 {error && (
                                     <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-3 mb-5 text-sm text-red-400 flex items-start gap-2">
                                         <AlertTriangle size={16} className="shrink-0 mt-0.5" />
@@ -265,10 +295,9 @@ export default function ProductPage() {
                                     </div>
                                 )}
 
-                                {/* Buy button */}
                                 <button
                                     onClick={handleBuy}
-                                    disabled={buying || product.available === 0 || (session?.user && !canAfford)}
+                                    disabled={buying || product.available === 0 || (!!session?.user && !canAfford)}
                                     className="w-full inline-flex items-center justify-center rounded-lg text-sm font-medium bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 h-11 px-4 transition-all cursor-pointer gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {buying ? (
@@ -287,7 +316,6 @@ export default function ProductPage() {
                                         : "Buy Now"}
                                 </button>
 
-                                {/* Top up link */}
                                 {session?.user && !canAfford && product.available > 0 && (
                                     <Link
                                         href="/topup"

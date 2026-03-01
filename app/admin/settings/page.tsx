@@ -138,49 +138,54 @@ export default function AdminSettingsPage() {
                 </div>
             </div>
 
-            {/* Payment Gateway Keys */}
+            {/* Security Info */}
             <div className="rounded-lg border bg-card overflow-hidden">
-                <div className="p-5 border-b">
-                    <h3 className="text-sm font-semibold flex items-center gap-2">
-                        <Key size={16} className="text-muted-foreground" />
-                        API Keys
-                    </h3>
-                </div>
-                <div className="p-5 flex flex-col gap-4">
-                    <div>
-                        <label className="text-sm font-medium mb-1.5 block">MoneyMotion API Key</label>
-                        <input className="border-input flex h-9 w-full rounded-md border bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring font-mono text-xs" placeholder="mm_live_xxxxxxxxxxxxxxxxxxxx" type="password" />
-                    </div>
-                    <div>
-                        <label className="text-sm font-medium mb-1.5 block">MoneyMotion Webhook Secret</label>
-                        <input className="border-input flex h-9 w-full rounded-md border bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring font-mono text-xs" placeholder="whsec_xxxxxxxxxxxxxxxxxxxx" type="password" />
-                    </div>
-                    <div>
-                        <label className="text-sm font-medium mb-1.5 block">Webhook URL</label>
-                        <div className="border-input flex h-9 w-full rounded-md border bg-muted/30 px-3 py-1 text-sm items-center">
-                            <code className="text-xs text-muted-foreground">https://yourdomain.com/api/webhooks/moneymotion</code>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Security */}
-            <div className="rounded-lg border bg-card overflow-hidden pb-8">
                 <div className="p-5 border-b">
                     <h3 className="text-sm font-semibold flex items-center gap-2">
                         <Shield size={16} className="text-muted-foreground" />
                         Security
                     </h3>
                 </div>
-                <div className="p-5 flex flex-col gap-4">
+                <div className="p-5 flex flex-col gap-3">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm font-medium">Rate limiting</p>
-                            <p className="text-xs text-muted-foreground">Limit purchase attempts per user</p>
+                            <p className="text-sm font-medium">Rate Limiting</p>
+                            <p className="text-xs text-muted-foreground">Login: 10/min, Purchase: 10/min, Top-up: 5/min</p>
                         </div>
-                        <button className="w-11 h-6 rounded-full bg-primary relative cursor-pointer transition-colors">
-                            <span className="absolute right-1 top-1 w-4 h-4 rounded-full bg-primary-foreground transition-transform" />
-                        </button>
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">Active</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-sm font-medium">Webhook Signature</p>
+                            <p className="text-xs text-muted-foreground">HMAC-SHA512 (base64)</p>
+                        </div>
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">Active</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-sm font-medium">CSP Headers</p>
+                            <p className="text-xs text-muted-foreground">Content-Security-Policy enabled</p>
+                        </div>
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">Active</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Webhook Info */}
+            <div className="rounded-lg border bg-card overflow-hidden">
+                <div className="p-5 border-b">
+                    <h3 className="text-sm font-semibold flex items-center gap-2">
+                        <Key size={16} className="text-muted-foreground" />
+                        Webhook
+                    </h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                        Set this URL in MoneyMotion dashboard. API keys are configured via environment variables.
+                    </p>
+                </div>
+                <div className="p-5">
+                    <label className="text-sm font-medium mb-1.5 block">Webhook URL</label>
+                    <div className="border-input flex h-9 w-full rounded-md border bg-muted/30 px-3 py-1 text-sm items-center">
+                        <code className="text-xs text-muted-foreground">https://shop.parallax.cards/api/webhook</code>
                     </div>
                 </div>
             </div>
