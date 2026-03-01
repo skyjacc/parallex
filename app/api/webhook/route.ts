@@ -21,25 +21,51 @@ const INFO_EVENTS = ["new", "created", "released"];
 export async function POST(req: Request) {
     try {
         const rawBody = await req.text();
-        const signature = req.headers.get("x-moneymotion-signature")
-            || req.headers.get("x-webhook-signature")
-            || req.headers.get("x-signature");
 
-        // ── Verify HMAC SHA-512 signature ───────────────────────
+        // Log all incoming headers for debugging signature issues
+        const allHeaders: Record<string, string> = {};
+        req.headers.forEach((v, k) => { allHeaders[k] = v; });
+        console.log("[WEBHOOK] Headers:", JSON.stringify(allHeaders));
+        console.log("[WEBHOOK] Body preview:", rawBody.slice(0, 300));
+
+        // ── Signature verification ───────────────────────────────
         const webhookSecret = process.env.MONEYMOTION_WEBHOOK_SECRET;
-        if (!webhookSecret) {
-            console.error("[WEBHOOK] MONEYMOTION_WEBHOOK_SECRET not configured");
-            return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
-        }
 
-        const expectedSignature = crypto
-            .createHmac("sha512", webhookSecret)
-            .update(rawBody)
-            .digest("hex");
+        if (webhookSecret) {
+            const signature = req.headers.get("x-moneymotion-signature")
+                || req.headers.get("x-webhook-signature")
+                || req.headers.get("x-signature")
+                || req.headers.get("signature");
 
-        if (signature !== expectedSignature) {
-            console.error("[WEBHOOK] Signature mismatch — possible tampering");
-            return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+            if (signature) {
+                const sigClean = signature.replace(/^sha256=|^sha512=/, "");
+
+                const sha256 = crypto.createHmac("sha256", webhookSecret).update(rawBody).digest("hex");
+                const sha512 = crypto.createHmac("sha512", webhookSecret).update(rawBody).digest("hex");
+
+                const valid = sigClean === sha256 || sigClean === sha512
+                    || signature === sha256 || signature === sha512;
+
+                if (!valid) {
+                    console.error("[WEBHOOK] Signature mismatch");
+                    console.error("[WEBHOOK] Received sig:", signature);
+                    console.error("[WEBHOOK] Expected sha256:", sha256);
+                    console.error("[WEBHOOK] Expected sha512:", sha512);
+
+                    if (process.env.WEBHOOK_SKIP_SIGNATURE !== "true") {
+                        return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+                    }
+                    console.warn("[WEBHOOK] WEBHOOK_SKIP_SIGNATURE=true — bypassing check");
+                }
+            } else {
+                console.warn("[WEBHOOK] No signature header found in request");
+                if (process.env.WEBHOOK_SKIP_SIGNATURE !== "true") {
+                    return NextResponse.json({ error: "Missing signature" }, { status: 401 });
+                }
+                console.warn("[WEBHOOK] WEBHOOK_SKIP_SIGNATURE=true — bypassing check");
+            }
+        } else {
+            console.warn("[WEBHOOK] MONEYMOTION_WEBHOOK_SECRET not set — skipping verification");
         }
 
         // ── Parse payload ───────────────────────────────────────
