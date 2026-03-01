@@ -17,9 +17,14 @@ export async function middleware(request: NextRequest) {
         return NextResponse.next();
     }
 
+    const secret = process.env.NEXTAUTH_SECRET;
+    if (!secret) {
+        console.error("[middleware] NEXTAUTH_SECRET is not set");
+        return NextResponse.redirect(new URL("/auth/error?error=ConfigurationError", request.url));
+    }
     const token = await getToken({
         req: request,
-        secret: process.env.NEXTAUTH_SECRET || "parallax-super-secret-key-change-in-production-2026",
+        secret,
     });
 
     // Not authenticated → redirect to sign in

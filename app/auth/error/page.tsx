@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
 
 const errorMessages: Record<string, string> = {
+    ConfigurationError: "Server configuration error. Please try again later or contact support.",
     CredentialsSignin: "Invalid email/username or password. Please try again.",
     SessionRequired: "You need to sign in to access this page.",
     OAuthSignin: "Error connecting to the authentication provider.",
