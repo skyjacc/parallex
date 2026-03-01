@@ -133,17 +133,19 @@ function TopUpContent() {
 
             if (!data.ok) {
                 toast.error(data.error || "Failed to create payment");
+                // If admin, show extra debug info
+                if (data._admin) {
+                    toast.info("Admin info", {
+                        description: data._admin,
+                        duration: 8000,
+                    });
+                }
                 return;
             }
 
             if (data.redirectUrl) {
                 toast.loading("Redirecting to payment...");
                 window.location.href = data.redirectUrl;
-            } else {
-                toast.success(`Payment session created!`, {
-                    description: `${totalPrx.toLocaleString()} PRX will be credited after payment confirmation.`,
-                    duration: 5000,
-                });
             }
         } catch {
             toast.error("Network error. Please try again.");

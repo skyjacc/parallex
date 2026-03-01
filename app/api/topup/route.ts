@@ -24,6 +24,8 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: false, error: "Not authenticated" }, { status: 401 });
     }
 
+    const isAdmin = (session.user as any)?.role === "ADMIN";
+
     try {
         const { prxAmount, paymentMethodId } = await req.json();
 
@@ -62,6 +64,90 @@ export async function POST(req: Request) {
 
         const moneymotionId = `mm_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
 
+        // ── Gateway-specific logic ──────────────────────────────
+        const gatewayHandlers: Record<string, () => Promise<{ redirectUrl?: string; error?: string }>> = {
+            moneymotion: async () => {
+                const apiKey = process.env.MONEYMOTION_API_KEY;
+                if (!apiKey || apiKey === "your-moneymotion-api-key") {
+                    console.error(`[TOPUP] MoneyMotion API key not configured. Set MONEYMOTION_API_KEY in .env`);
+                    return { error: "not_configured" };
+                }
+
+                try {
+                    const mmRes = await fetch("https://api.moneymotion.io/v1/checkout/sessions", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "Authorization": `Bearer ${apiKey}`,
+                        },
+                        body: JSON.stringify({
+                            amount: Math.round(usdAmount * 100),
+                            currency: "usd",
+                            metadata: { moneymotionId, userId: user.id, prxAmount: totalPrx },
+                            success_url: `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/topup?success=true&session=${moneymotionId}`,
+                            cancel_url: `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/topup?cancelled=true`,
+                        }),
+                    });
+
+                    if (mmRes.ok) {
+                        const mmData = await mmRes.json();
+                        return { redirectUrl: mmData.url || mmData.checkout_url };
+                    }
+
+                    const errBody = await mmRes.text().catch(() => "");
+                    console.error(`[TOPUP] MoneyMotion API returned ${mmRes.status}: ${errBody}`);
+                    return { error: "gateway_error" };
+                } catch (e) {
+                    console.error("[TOPUP] MoneyMotion API network error:", e);
+                    return { error: "gateway_unreachable" };
+                }
+            },
+
+            stripe: async () => {
+                console.error("[TOPUP] Stripe integration not yet configured. Set up Stripe API keys.");
+                return { error: "not_configured" };
+            },
+
+            paypal: async () => {
+                console.error("[TOPUP] PayPal integration not yet configured.");
+                return { error: "not_configured" };
+            },
+
+            crypto: async () => {
+                console.error("[TOPUP] Crypto integration not yet configured.");
+                return { error: "not_configured" };
+            },
+        };
+
+        const handler = gatewayHandlers[method.code];
+        if (!handler) {
+            console.error(`[TOPUP] No handler for payment method code: ${method.code}`);
+            return NextResponse.json({
+                ok: false,
+                error: "This payment method is temporarily unavailable. Please try another.",
+                ...(isAdmin ? { _admin: `No gateway handler for code "${method.code}"` } : {}),
+            }, { status: 503 });
+        }
+
+        const result = await handler();
+
+        if (result.error) {
+            // User gets a clean error, admin gets details
+            const userMessage = "This payment method is temporarily unavailable. Please try another method or contact support.";
+            const adminDetails: Record<string, string> = {
+                not_configured: `Gateway "${method.code}" is not configured. Set the API key in .env and restart the server.`,
+                gateway_error: `Gateway "${method.code}" returned an error. Check server logs for details.`,
+                gateway_unreachable: `Cannot reach "${method.code}" API. Check network or API status.`,
+            };
+
+            return NextResponse.json({
+                ok: false,
+                error: userMessage,
+                ...(isAdmin ? { _admin: adminDetails[result.error] || result.error } : {}),
+            }, { status: 503 });
+        }
+
+        // ── Success — create transaction ────────────────────────
         await db.transaction.create({
             data: {
                 userId: user.id,
@@ -72,55 +158,22 @@ export async function POST(req: Request) {
             },
         });
 
-        // ── MoneyMotion integration ─────────────────────────────
-        if (method.code === "moneymotion") {
-            const apiKey = process.env.MONEYMOTION_API_KEY;
-
-            if (apiKey) {
-                try {
-                    const mmRes = await fetch("https://api.moneymotion.io/v1/checkout/sessions", {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                            "Authorization": `Bearer ${apiKey}`,
-                        },
-                        body: JSON.stringify({
-                            amount: Math.round(usdAmount * 100), // cents
-                            currency: "usd",
-                            metadata: { moneymotionId, userId: user.id, prxAmount: totalPrx },
-                            success_url: `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/topup?success=true&session=${moneymotionId}`,
-                            cancel_url: `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/topup?cancelled=true`,
-                        }),
-                    });
-
-                    if (mmRes.ok) {
-                        const mmData = await mmRes.json();
-                        return NextResponse.json({
-                            ok: true,
-                            redirectUrl: mmData.url || mmData.checkout_url,
-                            session: { id: moneymotionId, totalPrx, usdAmount, bonusPrx },
-                        });
-                    }
-                } catch (e) {
-                    console.error("MoneyMotion API error:", e);
-                }
-            }
+        if (result.redirectUrl) {
+            return NextResponse.json({
+                ok: true,
+                redirectUrl: result.redirectUrl,
+                session: { id: moneymotionId, totalPrx, usdAmount, bonusPrx },
+            });
         }
 
-        // ── Fallback: return session without redirect ───────────
+        // Should not reach here if handler returned successfully without redirect
         return NextResponse.json({
-            ok: true,
-            session: {
-                id: moneymotionId,
-                prxAmount,
-                bonusPrx,
-                totalPrx,
-                usdAmount: usdAmount.toFixed(2),
-                method: method.code,
-            },
-        });
+            ok: false,
+            error: "Payment gateway did not return a checkout URL. Please try again.",
+            ...(isAdmin ? { _admin: "Handler returned success but no redirectUrl" } : {}),
+        }, { status: 502 });
     } catch (error) {
-        console.error("POST /api/topup error:", error);
-        return NextResponse.json({ ok: false, error: "Failed to create payment session" }, { status: 500 });
+        console.error("[TOPUP] Unexpected error:", error);
+        return NextResponse.json({ ok: false, error: "Something went wrong. Please try again later." }, { status: 500 });
     }
 }
