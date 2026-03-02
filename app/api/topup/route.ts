@@ -37,7 +37,7 @@ export async function POST(req: Request) {
     const isAdmin = (session.user as any)?.role === "ADMIN";
 
     try {
-        const { prxAmount, paymentMethodId } = await req.json();
+        const { prxAmount, paymentMethodId, payCurrency } = await req.json();
 
         if (!prxAmount || typeof prxAmount !== "number" || isNaN(prxAmount) || !Number.isFinite(prxAmount) || prxAmount < 50) {
             return NextResponse.json({ ok: false, error: "Minimum top-up is 50 PRX and must be a valid number" }, { status: 400 });
@@ -166,6 +166,8 @@ export async function POST(req: Request) {
                     return { error: "not_configured" };
                 }
 
+                const selectedCrypto = (typeof payCurrency === "string" && payCurrency.trim()) ? payCurrency.trim().toLowerCase() : "btc";
+
                 try {
                     const callbackUrl = `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/webhook/nowpayments`;
 
@@ -178,7 +180,7 @@ export async function POST(req: Request) {
                         body: JSON.stringify({
                             price_amount: usdAmount,
                             price_currency: "usd",
-                            pay_currency: "btc",
+                            pay_currency: selectedCrypto,
                             ipn_callback_url: callbackUrl,
                             order_id: moneymotionId,
                             order_description: `PRX Top-up: ${prxAmount} PRX (+${bonusPrx} bonus)`,

@@ -21,6 +21,7 @@ import { useSidebar } from "./SidebarContext";
 import { useState, useRef, useEffect } from "react";
 import { SearchDialog } from "./SearchDialog";
 import { useSession, signOut } from "next-auth/react";
+import { LogoFull, LogoCollapsed } from "./Logo";
 
 // Public — visible to everyone
 const publicNav = [
@@ -84,15 +85,12 @@ export function Sidebar() {
                     <div className="flex flex-col gap-2 p-2">
                         <Link href="/" className="select-none hover:bg-transparent -mt-1">
                             {!collapsed ? (
-                                <span className="flex gap-2 items-center text-foreground font-bold text-lg px-1 py-2">
-                                    <span className="w-7 h-7 bg-foreground rounded-md flex items-center justify-center shrink-0">
-                                        <span className="text-background font-black text-xs">P</span>
-                                    </span>
-                                    <span className="truncate">Parallax</span>
-                                </span>
+                                <div className="px-1 py-2">
+                                    <LogoFull />
+                                </div>
                             ) : (
-                                <div className="h-8 w-8 bg-foreground rounded-md flex items-center justify-center mt-1">
-                                    <span className="text-background font-black text-sm leading-none">P</span>
+                                <div className="mt-1 flex justify-center">
+                                    <LogoCollapsed />
                                 </div>
                             )}
                         </Link>

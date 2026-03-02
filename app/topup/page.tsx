@@ -1,6 +1,6 @@
 "use client";
 
-import { Zap, Lock, LogIn, ArrowRight, Percent, Gift, Shield, Loader2, CreditCard, AlertTriangle, CheckCircle, Copy, Check, Clock } from "lucide-react";
+import { Zap, Lock, LogIn, ArrowRight, Percent, Gift, Shield, Loader2, CreditCard, AlertTriangle, CheckCircle, Copy, Check, Clock, ChevronDown, Search as SearchIcon } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useMemo, useEffect, Suspense } from "react";
@@ -85,6 +85,13 @@ function TopUpContent() {
     } | null>(null);
     const [copiedAddr, setCopiedAddr] = useState(false);
 
+    // Crypto currency selection
+    const [cryptoCurrencies, setCryptoCurrencies] = useState<string[]>([]);
+    const [selectedCrypto, setSelectedCrypto] = useState("btc");
+    const [cryptoDropdownOpen, setCryptoDropdownOpen] = useState(false);
+    const [cryptoSearch, setCryptoSearch] = useState("");
+    const [loadingCurrencies, setLoadingCurrencies] = useState(false);
+
     const balance = (session?.user as any)?.prxBalance ?? 0;
     const prxAmount = Number(inputPrx) || 0;
     const tier = useMemo(() => getBonus(prxAmount), [prxAmount]);
@@ -99,6 +106,19 @@ function TopUpContent() {
             .then((data) => { if (data.ok) setMethods(data.methods); })
             .finally(() => setLoadingMethods(false));
     }, []);
+
+    // Load crypto currencies when crypto method is selected
+    const selectedMethodObj = methods.find((m) => m.id === selectedMethod);
+    const isCryptoSelected = selectedMethodObj?.code === "crypto";
+
+    useEffect(() => {
+        if (!isCryptoSelected || cryptoCurrencies.length > 0) return;
+        setLoadingCurrencies(true);
+        fetch("/api/crypto-currencies")
+            .then((r) => r.json())
+            .then((data) => { if (data.ok) setCryptoCurrencies(data.currencies); })
+            .finally(() => setLoadingCurrencies(false));
+    }, [isCryptoSelected]);
 
     // Polling logic
     useEffect(() => {
@@ -193,7 +213,7 @@ function TopUpContent() {
             const res = await fetch("/api/topup", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ prxAmount, paymentMethodId: selectedMethod }),
+                body: JSON.stringify({ prxAmount, paymentMethodId: selectedMethod, payCurrency: isCrypto ? selectedCrypto : undefined }),
             });
             const data = await res.json();
 
@@ -424,6 +444,68 @@ function TopUpContent() {
                         </div>
                     )}
                 </div>
+
+                {/* ── Crypto Currency Selector ─────── */}
+                {isCryptoSelected && (
+                    <div className="rounded-xl border bg-card p-5 mb-6">
+                        <div className="flex items-center gap-2 mb-4">
+                            <svg viewBox="0 0 24 24" className="w-4 h-4 text-primary" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M12 6v12M6 12h12" /></svg>
+                            <span className="text-sm font-medium">Select Cryptocurrency</span>
+                        </div>
+
+                        {loadingCurrencies ? (
+                            <div className="flex items-center justify-center py-6">
+                                <Loader2 size={20} className="animate-spin text-muted-foreground" />
+                            </div>
+                        ) : (
+                            <div className="relative">
+                                <button
+                                    onClick={() => setCryptoDropdownOpen(!cryptoDropdownOpen)}
+                                    className="flex items-center justify-between w-full rounded-lg border p-3 text-sm hover:border-primary/30 transition-all cursor-pointer"
+                                >
+                                    <span className="font-mono font-medium">{selectedCrypto.toUpperCase()}</span>
+                                    <ChevronDown size={16} className={`text-muted-foreground transition-transform ${cryptoDropdownOpen ? "rotate-180" : ""}`} />
+                                </button>
+
+                                {cryptoDropdownOpen && (
+                                    <div className="absolute z-20 top-full mt-1 left-0 right-0 bg-card border rounded-lg shadow-lg max-h-64 overflow-hidden flex flex-col">
+                                        <div className="p-2 border-b">
+                                            <div className="relative">
+                                                <SearchIcon size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                                <input
+                                                    type="text"
+                                                    placeholder="Search currency..."
+                                                    value={cryptoSearch}
+                                                    onChange={(e) => setCryptoSearch(e.target.value)}
+                                                    className="w-full h-8 pl-8 pr-3 text-sm rounded-md border bg-transparent outline-none focus:border-ring"
+                                                    autoFocus
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="overflow-y-auto p-1">
+                                            {cryptoCurrencies
+                                                .filter((c) => c.toLowerCase().includes(cryptoSearch.toLowerCase()))
+                                                .map((currency) => (
+                                                    <button
+                                                        key={currency}
+                                                        onClick={() => { setSelectedCrypto(currency); setCryptoDropdownOpen(false); setCryptoSearch(""); }}
+                                                        className={`flex items-center w-full rounded-md px-3 py-2 text-sm transition-all cursor-pointer ${
+                                                            selectedCrypto === currency
+                                                                ? "bg-primary/10 text-primary font-medium"
+                                                                : "hover:bg-muted/50"
+                                                        }`}
+                                                    >
+                                                        <span className="font-mono">{currency.toUpperCase()}</span>
+                                                        {selectedCrypto === currency && <Check size={14} className="ml-auto text-primary" />}
+                                                    </button>
+                                                ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {/* ── Top Up Button ───────────────────── */}
                 <button

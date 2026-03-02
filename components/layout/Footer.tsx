@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Zap } from "lucide-react";
+import { LogoFull } from "./Logo";
 
 const nav = [
     { href: "/", label: "Home" },
@@ -23,11 +23,8 @@ export function Footer() {
         <footer className="border-t mt-auto">
             <div className="max-w-6xl mx-auto px-4 py-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
                 <div>
-                    <Link href="/" className="flex items-center gap-2 mb-3">
-                        <span className="w-7 h-7 bg-foreground rounded-md flex items-center justify-center">
-                            <span className="text-background font-black text-xs">P</span>
-                        </span>
-                        <span className="font-bold">Parallax</span>
+                    <Link href="/" className="mb-3 inline-block">
+                        <LogoFull />
                     </Link>
                     <p className="text-xs text-muted-foreground leading-relaxed">
                         In any game with any cheat, it is possible to get your account blocked. Play as carefully as possible.
