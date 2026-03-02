@@ -16,6 +16,7 @@ datasource db {
 enum Role {
   USER
   ADMIN
+  SUPPORT
 }
 
 enum TransactionStatus {
@@ -79,6 +80,7 @@ model User {
   referrals    Referral[]  @relation("Referrer")
   referred     Referral?   @relation("Referred")
   couponUses   CouponUse[]
+  balanceLogs  BalanceLog[]
 
   @@index([role])
   @@index([referralCode])
@@ -87,12 +89,13 @@ model User {
 // ── Category ─────────────────────────────────────────────────
 
 model Category {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  slug      String   @unique
-  icon      String   @default("")
-  sortOrder Int      @default(0)
-  createdAt DateTime @default(now())
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  icon        String   @default("")
+  description String   @default("")
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
 
   products Product[]
 
@@ -118,13 +121,29 @@ model Product {
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 
-  stocks  Stock[]
-  orders  Order[]
-  reviews Review[]
+  stocks   Stock[]
+  orders   Order[]
+  reviews  Review[]
+  variants ProductVariant[]
 
   @@index([pricePrx])
   @@index([categoryId])
   @@index([detectionStatus])
+}
+
+// ── ProductVariant ───────────────────────────────────────
+
+model ProductVariant {
+  id           String  @id @default(cuid())
+  productId    String
+  name         String
+  pricePrx     Int
+  durationDays Int?
+  sortOrder    Int     @default(0)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
 }
 
 // ── Stock ────────────────────────────────────────────────────
@@ -244,15 +263,35 @@ model CouponUse {
   @@unique([couponId, userId])
 }
 
+// ── BalanceLog ───────────────────────────────────────────────
+
+model BalanceLog {
+  id            String   @id @default(cuid())
+  userId        String
+  type          String
+  amount        Int
+  description   String   @default("")
+  balanceBefore Int
+  balanceAfter  Int
+  createdAt     DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
 // ── Ticket ───────────────────────────────────────────────────
 
 model Ticket {
-  id        String       @id @default(cuid())
-  userId    String
-  subject   String
-  status    TicketStatus @default(OPEN)
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  id         String       @id @default(cuid())
+  userId     String
+  subject    String
+  status     TicketStatus @default(OPEN)
+  category   String?
+  productId  String?
+  tags       Json         @default("[]")
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
 
   user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   messages Message[]

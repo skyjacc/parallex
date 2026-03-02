@@ -67,6 +67,15 @@ export async function POST(
                 },
             });
 
+            // Referral commission: 10% lifetime
+            if (user.referredBy) {
+                const commission = Math.floor(product.pricePrx * 0.1);
+                if (commission > 0) {
+                    await tx.user.update({ where: { id: user.referredBy }, data: { prxBalance: { increment: commission } } });
+                    await tx.referral.updateMany({ where: { referredUserId: user.id }, data: { bonusPrx: { increment: commission } } });
+                }
+            }
+
             return {
                 orderId: order.id,
                 productName: product.name,

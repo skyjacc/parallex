@@ -8,11 +8,12 @@ export async function GET() {
     const session = await getServerSession(authOptions);
     if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const isAdmin = (session.user as any).role === "ADMIN";
+    const role = (session.user as any).role;
+    const isStaff = role === "ADMIN" || role === "SUPPORT";
     const userId = (session.user as any).id;
 
     const tickets = await db.ticket.findMany({
-        where: isAdmin ? {} : { userId },
+        where: isStaff ? {} : { userId },
         orderBy: { updatedAt: "desc" },
         include: {
             user: { select: { name: true, email: true } },
@@ -24,6 +25,7 @@ export async function GET() {
         ok: true,
         tickets: tickets.map((t) => ({
             id: t.id, subject: t.subject, status: t.status,
+            category: t.category, tags: t.tags,
             userName: t.user.name, userEmail: t.user.email,
             messageCount: t._count.messages,
             createdAt: t.createdAt.toISOString(),
@@ -41,7 +43,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Max 3 tickets per hour" }, { status: 429 });
     }
 
-    const { subject, message } = await req.json();
+    const { subject, message, category, productId, tags } = await req.json();
     if (!subject?.trim() || !message?.trim()) {
         return NextResponse.json({ error: "Subject and message required" }, { status: 400 });
     }
@@ -56,6 +58,9 @@ export async function POST(req: Request) {
         data: {
             userId: uid,
             subject: subject.trim(),
+            category: category || null,
+            productId: productId || null,
+            tags: tags || [],
             messages: {
                 create: {
                     senderId: uid,

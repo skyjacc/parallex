@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
+import { Footer } from "@/components/layout/Footer";
 import { SidebarProvider } from "@/components/layout/SidebarContext";
 import { SessionProvider } from "@/components/layout/SessionProvider";
 import { Toaster } from "sonner";
@@ -37,6 +38,7 @@ export default function RootLayout({
                             <div className="flex flex-col">
                                 <div className="h-[calc(100vh-68px)] overflow-y-auto" id="main-scroll-container">
                                     {children}
+                                    <Footer />
                                 </div>
                             </div>
                         </main>
