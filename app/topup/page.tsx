@@ -1,9 +1,9 @@
 "use client";
 
-import { Zap, Lock, LogIn, ArrowRight, Percent, Gift, Shield, Loader2, CreditCard, AlertTriangle, CheckCircle, Copy, Check, Clock, ChevronDown, Search as SearchIcon } from "lucide-react";
+import { Zap, Lock, LogIn, ArrowRight, Percent, Gift, Shield, Loader2, CreditCard, AlertTriangle, CheckCircle, Copy, Check, Clock, Search as SearchIcon, X } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useMemo, useEffect, Suspense } from "react";
+import { useState, useMemo, useEffect, Suspense, useCallback } from "react";
 import { toast } from "sonner";
 
 const BASE_RATE = 100;
@@ -22,6 +22,117 @@ function getBonus(prx: number) {
 }
 
 const quickAmounts = [100, 500, 1000, 2500, 5000, 10000];
+
+/* ── Crypto coin SVG icons ───────────────────────────────── */
+const cryptoIcons: Record<string, { icon: React.ReactNode; color: string; name: string }> = {
+    btc: {
+        name: "Bitcoin",
+        color: "#F7931A",
+        icon: <path d="M23.6 14.9c.3-2 -1.2-3.1-3.3-3.8l.7-2.7-1.6-.4-.7 2.6c-.4-.1-.8-.2-1.2-.3l.7-2.6-1.6-.4-.7 2.7c-.3-.1-.7-.2-1-.3l-2-.5-.4 1.7s1.2.3 1.2.3c.6.2.7.6.7.9l-.7 2.9c0 0 .1 0 .1 0l-.1 0-.9 3.8c-.1.2-.3.6-.8.4 0 0-1.2-.3-1.2-.3l-.8 1.8 1.9.5.9.2-.7 2.7 1.6.4.7-2.7c.4.1.8.2 1.2.3l-.7 2.7 1.6.4.7-2.7c2.8.5 4.9.3 5.8-2.2.7-2-.1-3.2-1.5-3.9 1.1-.3 1.9-1 2.1-2.5zm-3.8 5.3c-.5 2-4 .9-5.1.7l.9-3.7c1.1.3 4.7.8 4.2 3zm.5-5.3c-.5 1.8-3.4.9-4.3.7l.8-3.3c.9.2 4 .7 3.5 2.6z" />,
+    },
+    eth: {
+        name: "Ethereum",
+        color: "#627EEA",
+        icon: <><path d="M16 3l-7 11.5L16 18.5l7-4L16 3z" opacity="0.6" /><path d="M9 14.5L16 29l7-14.5-7 4-7-4z" /><path d="M16 18.5v-15.5l-7 11.5 7 4z" opacity="0.4" /></>,
+    },
+    usdt: {
+        name: "Tether",
+        color: "#26A17B",
+        icon: <path d="M16 4C9.4 4 4 9.4 4 16s5.4 12 12 12 12-5.4 12-12S22.6 4 16 4zm5.2 9.2h-2.8v1.6c2.6.1 4.5.6 4.5 1.2s-1.9 1.1-4.5 1.2v4.4h-3.8v-4.4c-2.6-.1-4.5-.6-4.5-1.2s1.9-1.1 4.5-1.2v-1.6h-2.8V10h10v3.2z" />,
+    },
+    ltc: {
+        name: "Litecoin",
+        color: "#BFBBBB",
+        icon: <path d="M16 4C9.4 4 4 9.4 4 16s5.4 12 12 12 12-5.4 12-12S22.6 4 16 4zm1.5 17.5h-6.3l.7-2.8-1.8.7.4-1.8 1.8-.7 1.8-7h3.2l-1.4 5.5 1.8-.7-.4 1.8-1.8.7-.7 2.8h4.7v1.5z" />,
+    },
+    xmr: {
+        name: "Monero",
+        color: "#FF6600",
+        icon: <path d="M16 4C9.4 4 4 9.4 4 16s5.4 12 12 12 12-5.4 12-12S22.6 4 16 4zm0 2.4l5.6 5.6v6h-2.4v-4.4L16 16.8l-3.2-3.2v4.4h-2.4v-6L16 6.4zm-8.8 14h2v-3.6l2 2 .8-.8-3.6-3.6v6h-1.2zm17.6 0h-1.2v-6l-3.6 3.6.8.8 2-2v3.6h2v-.4z" />,
+    },
+    trx: {
+        name: "TRON",
+        color: "#FF0013",
+        icon: <path d="M16 4C9.4 4 4 9.4 4 16s5.4 12 12 12 12-5.4 12-12S22.6 4 16 4zm-3 6h9.5l-9 13.5V10zm1.5 2v7.5l5.5-8.2h-5.5z" />,
+    },
+    sol: {
+        name: "Solana",
+        color: "#9945FF",
+        icon: <><path d="M8 19.5l2.5-2.5h13l-2.5 2.5H8z" /><path d="M8 12.5l2.5-2.5h13l-2.5 2.5H8z" opacity="0.7" /><path d="M23.5 15H10.5L8 17.5h13l2.5-2.5z" opacity="0.4" /></>,
+    },
+    doge: {
+        name: "Dogecoin",
+        color: "#C2A633",
+        icon: <path d="M16 4C9.4 4 4 9.4 4 16s5.4 12 12 12 12-5.4 12-12S22.6 4 16 4zm-.5 5h3c3.3 0 6 2.7 6 6s-2.7 6-6 6h-3V9zm2.5 2.5v7c2.2 0 3.5-1.6 3.5-3.5s-1.3-3.5-3.5-3.5zm-2.5.5h-2v2h2v-2zm0 4h-2v2h2v-2z" />,
+    },
+    bnb: {
+        name: "BNB",
+        color: "#F3BA2F",
+        icon: <><path d="M16 6l2.5 2.5-2.5 2.5-2.5-2.5L16 6z" /><path d="M22 12l2.5 2.5L22 17l-2.5-2.5L22 12z" /><path d="M10 12l2.5 2.5L10 17l-2.5-2.5L10 12z" /><path d="M16 18l2.5 2.5L16 23l-2.5-2.5L16 18z" /><path d="M16 12l2.5 2.5L16 17l-2.5-2.5L16 12z" /></>,
+    },
+    matic: {
+        name: "Polygon",
+        color: "#8247E5",
+        icon: <path d="M20.5 14.2l-3-1.7c-.3-.2-.7-.2-1 0l-2.4 1.4-1.6-.9 2.4-1.4c.3-.2.5-.5.5-.9s-.2-.7-.5-.9l-3-1.7c-.3-.2-.7-.2-1 0l-3 1.7c-.3.2-.5.5-.5.9v3.4c0 .4.2.7.5.9l3 1.7c.3.2.7.2 1 0l2.4-1.4 1.6.9-2.4 1.4c-.3.2-.5.5-.5.9s.2.7.5.9l3 1.7c.3.2.7.2 1 0l3-1.7c.3-.2.5-.5.5-.9v-3.4c0-.4-.2-.7-.5-.9z" />,
+    },
+    usdc: {
+        name: "USD Coin",
+        color: "#2775CA",
+        icon: <path d="M16 4C9.4 4 4 9.4 4 16s5.4 12 12 12 12-5.4 12-12S22.6 4 16 4zm4.8 14.4c0 2.4-2 3.6-4.8 3.6s-4.8-1.2-4.8-3.6h2.4c0 .8.8 1.2 2.4 1.2s2.4-.4 2.4-1.2c0-.6-.4-1-1.6-1.2l-1.6-.4c-2-.4-3.2-1.2-3.2-3 0-2 2-3.2 4.4-3.2 2.4 0 4.4 1.2 4.4 3.2h-2.4c0-.8-.8-1.2-2-1.2s-2 .4-2 1c0 .6.4.8 1.6 1.2l1.6.4c2 .4 3.2 1.4 3.2 3.2z" />,
+    },
+    ada: {
+        name: "Cardano",
+        color: "#0033AD",
+        icon: <><circle cx="16" cy="8" r="2" /><circle cx="16" cy="24" r="2" /><circle cx="9" cy="12" r="2" /><circle cx="23" cy="12" r="2" /><circle cx="9" cy="20" r="2" /><circle cx="23" cy="20" r="2" /><circle cx="16" cy="16" r="3" /></>,
+    },
+    dot: {
+        name: "Polkadot",
+        color: "#E6007A",
+        icon: <><circle cx="16" cy="8" r="3.5" /><circle cx="16" cy="24" r="3.5" /><ellipse cx="16" cy="16" rx="6" ry="3" fill="none" stroke="currentColor" strokeWidth="2" /></>,
+    },
+    avax: {
+        name: "Avalanche",
+        color: "#E84142",
+        icon: <path d="M16 4C9.4 4 4 9.4 4 16s5.4 12 12 12 12-5.4 12-12S22.6 4 16 4zm4.5 16h-2.8c-.4 0-.7-.2-.9-.5l-1-1.8c-.2-.3-.5-.3-.7 0l-1 1.8c-.2.3-.5.5-.9.5h-2.7l5.5-9.5 4 7z" />,
+    },
+    xlm: {
+        name: "Stellar",
+        color: "#14B6E7",
+        icon: <path d="M22.5 8.5l-1.5 1c-2.5-2-6-2.5-9-1.5L7 10.5l-1.5-1 6-3c3.5-1.5 7.5-.5 11 2zm-13 15l1.5-1c2.5 2 6 2.5 9 1.5l5-2.5 1.5 1-6 3c-3.5 1.5-7.5.5-11-2zm-3-7.5l15-7.5 1.5 1-15 7.5-1.5-1zm8 5l15-7.5-1.5-1-15 7.5 1.5 1z" />,
+    },
+    xrp: {
+        name: "XRP",
+        color: "#23292F",
+        icon: <path d="M10 8l3.5 4L10 16h2.5l2-2.3c.3-.3.7-.3 1 0l2 2.3H20l-3.5-4L20 8h-2.5l-2 2.3c-.3.3-.7.3-1 0L12.5 8H10z" />,
+    },
+};
+
+/* Fallback icon for unknown coins */
+function CryptoIcon({ code, size = 32 }: { code: string; size?: number }) {
+    const info = cryptoIcons[code];
+    if (info) {
+        return (
+            <svg width={size} height={size} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="16" cy="16" r="16" fill={info.color} />
+                <g fill="white">{info.icon}</g>
+            </svg>
+        );
+    }
+    // Fallback: colored circle with first letter(s)
+    const hue = code.split("").reduce((a, c) => a + c.charCodeAt(0), 0) % 360;
+    return (
+        <svg width={size} height={size} viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="16" cy="16" r="16" fill={`hsl(${hue}, 55%, 50%)`} />
+            <text x="16" y="21" textAnchor="middle" fill="white" fontSize="12" fontWeight="bold" fontFamily="monospace">
+                {code.slice(0, 3).toUpperCase()}
+            </text>
+        </svg>
+    );
+}
+
+function getCryptoName(code: string): string {
+    return cryptoIcons[code]?.name || code.toUpperCase();
+}
 
 /* ── Payment method SVG icons by code ────────────────────── */
 const methodIcons: Record<string, React.ReactNode> = {
@@ -85,12 +196,12 @@ function TopUpContent() {
     } | null>(null);
     const [copiedAddr, setCopiedAddr] = useState(false);
 
-    // Crypto currency selection
+    // Crypto currency picker modal
+    const [showCryptoPicker, setShowCryptoPicker] = useState(false);
     const [cryptoCurrencies, setCryptoCurrencies] = useState<string[]>([]);
-    const [selectedCrypto, setSelectedCrypto] = useState("btc");
-    const [cryptoDropdownOpen, setCryptoDropdownOpen] = useState(false);
     const [cryptoSearch, setCryptoSearch] = useState("");
     const [loadingCurrencies, setLoadingCurrencies] = useState(false);
+    const [currenciesLoaded, setCurrenciesLoaded] = useState(false);
 
     const balance = (session?.user as any)?.prxBalance ?? 0;
     const prxAmount = Number(inputPrx) || 0;
@@ -107,38 +218,30 @@ function TopUpContent() {
             .finally(() => setLoadingMethods(false));
     }, []);
 
-    // Load crypto currencies when crypto method is selected
-    const selectedMethodObj = methods.find((m) => m.id === selectedMethod);
-    const isCryptoSelected = selectedMethodObj?.code === "crypto";
-
-    useEffect(() => {
-        if (!isCryptoSelected || cryptoCurrencies.length > 0) return;
+    // Load crypto currencies on demand
+    const loadCurrencies = useCallback(async () => {
+        if (currenciesLoaded) return;
         setLoadingCurrencies(true);
-        fetch("/api/crypto-currencies")
-            .then((r) => r.json())
-            .then((data) => { if (data.ok) setCryptoCurrencies(data.currencies); })
-            .finally(() => setLoadingCurrencies(false));
-    }, [isCryptoSelected]);
+        try {
+            const res = await fetch("/api/crypto-currencies");
+            const data = await res.json();
+            if (data.ok) { setCryptoCurrencies(data.currencies); setCurrenciesLoaded(true); }
+        } catch { /* ignore */ }
+        setLoadingCurrencies(false);
+    }, [currenciesLoaded]);
 
     // Polling logic
     useEffect(() => {
         if (!pollingTxId) { setPollElapsed(0); return; }
-
         const startTime = Date.now();
         const tick = setInterval(() => setPollElapsed(Math.floor((Date.now() - startTime) / 1000)), 1000);
-
         const poll = setInterval(async () => {
             try {
                 const res = await fetch(`/api/topup/status?txId=${pollingTxId}`);
                 if (res.ok) {
                     const data = await res.json();
                     if (data.status === "COMPLETED") {
-                        setPollStatus({
-                            status: "COMPLETED",
-                            amountPrx: data.amountPrx,
-                            cardLast4: data.cardLast4,
-                            cardBrand: data.cardBrand,
-                        });
+                        setPollStatus({ status: "COMPLETED", amountPrx: data.amountPrx, cardLast4: data.cardLast4, cardBrand: data.cardBrand });
                         setPollingTxId(null);
                         update();
                     } else if (data.status === "FAILED" || data.status === "EXPIRED") {
@@ -146,87 +249,57 @@ function TopUpContent() {
                         setPollingTxId(null);
                     }
                 }
-            } catch (err) {
-                console.error("Polling error:", err);
-            }
+            } catch (err) { console.error("Polling error:", err); }
         }, 3000);
-
         return () => { clearInterval(poll); clearInterval(tick); };
     }, [pollingTxId]);
 
-
-    // Handle success/cancelled from redirect
     useEffect(() => {
-        if (searchParams.get("success") === "true") {
-            toast.success("Payment successful! PRX will be credited shortly.", { duration: 5000 });
-        }
-        if (searchParams.get("cancelled") === "true") {
-            toast.error("Payment was cancelled.", { duration: 3000 });
-        }
+        if (searchParams.get("success") === "true") toast.success("Payment successful! PRX will be credited shortly.", { duration: 5000 });
+        if (searchParams.get("cancelled") === "true") toast.error("Payment was cancelled.", { duration: 3000 });
     }, [searchParams]);
 
     const handleMethodSelect = (method: PaymentMethod) => {
         if (!method.enabled) {
-            toast.error(`${method.name} is currently disabled by administrator.`, {
-                description: "Please choose another payment method.",
-            });
+            toast.error(`${method.name} is currently disabled by administrator.`, { description: "Please choose another payment method." });
             return;
         }
         setSelectedMethod(method.id);
     };
 
-    const handleTopUp = async () => {
-        if (!session?.user) {
-            router.push("/auth/signin?callbackUrl=/topup");
-            return;
-        }
-        if (prxAmount < 50) {
-            toast.error("Minimum top-up is 50 PRX");
-            return;
-        }
-        if (!selectedMethod) {
-            toast.error("Please select a payment method");
-            return;
-        }
+    // Create payment (called directly for card, or after crypto selection)
+    const createPayment = async (payCurrency?: string) => {
+        if (!session?.user) { router.push("/auth/signin?callbackUrl=/topup"); return; }
+        if (prxAmount < 50) { toast.error("Minimum top-up is 50 PRX"); return; }
+        if (!selectedMethod) { toast.error("Please select a payment method"); return; }
 
         const method = methods.find((m) => m.id === selectedMethod);
-        if (method && !method.enabled) {
-            toast.error(`${method.name} is disabled. Choose another method.`);
-            setSelectedMethod(null);
-            return;
-        }
+        if (method && !method.enabled) { toast.error(`${method.name} is disabled. Choose another method.`); setSelectedMethod(null); return; }
 
         setProcessing(true);
-
         const isCrypto = method?.code === "crypto";
 
-        // Only open popup for non-crypto payments
         let paymentWindow: Window | null = null;
         if (!isCrypto) {
             paymentWindow = window.open("", "_blank");
-            if (paymentWindow) {
-                paymentWindow.document.write("Loading payment gateway...");
-            }
+            if (paymentWindow) paymentWindow.document.write("Loading payment gateway...");
         }
 
         try {
             const res = await fetch("/api/topup", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ prxAmount, paymentMethodId: selectedMethod, payCurrency: isCrypto ? selectedCrypto : undefined }),
+                body: JSON.stringify({ prxAmount, paymentMethodId: selectedMethod, payCurrency: isCrypto ? payCurrency : undefined }),
             });
             const data = await res.json();
 
             if (!data.ok) {
                 if (paymentWindow) paymentWindow.close();
                 toast.error(data.error || "Failed to create payment");
-                if (data._admin) {
-                    toast.info("Admin info", { description: data._admin, duration: 8000 });
-                }
+                if (data._admin) toast.info("Admin info", { description: data._admin, duration: 8000 });
                 return;
             }
 
-            // ── Crypto payment — show payment details ────────
             if (data.cryptoPayment && data.transactionId) {
                 setCryptoPayment(data.cryptoPayment);
                 setPollingTxId(data.transactionId);
@@ -234,22 +307,15 @@ function TopUpContent() {
                 return;
             }
 
-            // ── Card payment — redirect to gateway ───────────
             if (data.redirectUrl && data.transactionId) {
                 toast.loading("Opening payment window...");
-                if (paymentWindow) {
-                    paymentWindow.location.href = data.redirectUrl;
-                } else {
-                    window.location.href = data.redirectUrl;
-                }
+                if (paymentWindow) paymentWindow.location.href = data.redirectUrl;
+                else window.location.href = data.redirectUrl;
                 setPollingTxId(data.transactionId);
                 setPollStatus({ status: "PENDING" });
             } else if (data.redirectUrl) {
-                if (paymentWindow) {
-                    paymentWindow.location.href = data.redirectUrl;
-                } else {
-                    window.location.href = data.redirectUrl;
-                }
+                if (paymentWindow) paymentWindow.location.href = data.redirectUrl;
+                else window.location.href = data.redirectUrl;
             }
         } catch {
             if (paymentWindow) paymentWindow.close();
@@ -258,6 +324,34 @@ function TopUpContent() {
             setProcessing(false);
         }
     };
+
+    const handleTopUp = async () => {
+        if (!session?.user) { router.push("/auth/signin?callbackUrl=/topup"); return; }
+        if (prxAmount < 50) { toast.error("Minimum top-up is 50 PRX"); return; }
+        if (!selectedMethod) { toast.error("Please select a payment method"); return; }
+
+        const method = methods.find((m) => m.id === selectedMethod);
+        if (method?.code === "crypto") {
+            // Open crypto picker modal instead of paying immediately
+            setShowCryptoPicker(true);
+            loadCurrencies();
+            return;
+        }
+
+        await createPayment();
+    };
+
+    const handleCryptoSelect = async (currency: string) => {
+        setShowCryptoPicker(false);
+        setCryptoSearch("");
+        await createPayment(currency);
+    };
+
+    // Split currencies into popular (with icons) and others
+    const popularCurrencies = cryptoCurrencies.filter((c) => cryptoIcons[c]);
+    const otherCurrencies = cryptoCurrencies.filter((c) => !cryptoIcons[c]);
+    const filteredPopular = cryptoSearch ? popularCurrencies.filter((c) => c.includes(cryptoSearch.toLowerCase()) || getCryptoName(c).toLowerCase().includes(cryptoSearch.toLowerCase())) : popularCurrencies;
+    const filteredOther = cryptoSearch ? otherCurrencies.filter((c) => c.includes(cryptoSearch.toLowerCase()) || getCryptoName(c).toLowerCase().includes(cryptoSearch.toLowerCase())) : otherCurrencies;
 
     return (
         <div className="flex justify-center w-full flex-col items-center px-4 py-8">
@@ -445,68 +539,6 @@ function TopUpContent() {
                     )}
                 </div>
 
-                {/* ── Crypto Currency Selector ─────── */}
-                {isCryptoSelected && (
-                    <div className="rounded-xl border bg-card p-5 mb-6">
-                        <div className="flex items-center gap-2 mb-4">
-                            <svg viewBox="0 0 24 24" className="w-4 h-4 text-primary" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M12 6v12M6 12h12" /></svg>
-                            <span className="text-sm font-medium">Select Cryptocurrency</span>
-                        </div>
-
-                        {loadingCurrencies ? (
-                            <div className="flex items-center justify-center py-6">
-                                <Loader2 size={20} className="animate-spin text-muted-foreground" />
-                            </div>
-                        ) : (
-                            <div className="relative">
-                                <button
-                                    onClick={() => setCryptoDropdownOpen(!cryptoDropdownOpen)}
-                                    className="flex items-center justify-between w-full rounded-lg border p-3 text-sm hover:border-primary/30 transition-all cursor-pointer"
-                                >
-                                    <span className="font-mono font-medium">{selectedCrypto.toUpperCase()}</span>
-                                    <ChevronDown size={16} className={`text-muted-foreground transition-transform ${cryptoDropdownOpen ? "rotate-180" : ""}`} />
-                                </button>
-
-                                {cryptoDropdownOpen && (
-                                    <div className="absolute z-20 top-full mt-1 left-0 right-0 bg-card border rounded-lg shadow-lg max-h-64 overflow-hidden flex flex-col">
-                                        <div className="p-2 border-b">
-                                            <div className="relative">
-                                                <SearchIcon size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                                                <input
-                                                    type="text"
-                                                    placeholder="Search currency..."
-                                                    value={cryptoSearch}
-                                                    onChange={(e) => setCryptoSearch(e.target.value)}
-                                                    className="w-full h-8 pl-8 pr-3 text-sm rounded-md border bg-transparent outline-none focus:border-ring"
-                                                    autoFocus
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="overflow-y-auto p-1">
-                                            {cryptoCurrencies
-                                                .filter((c) => c.toLowerCase().includes(cryptoSearch.toLowerCase()))
-                                                .map((currency) => (
-                                                    <button
-                                                        key={currency}
-                                                        onClick={() => { setSelectedCrypto(currency); setCryptoDropdownOpen(false); setCryptoSearch(""); }}
-                                                        className={`flex items-center w-full rounded-md px-3 py-2 text-sm transition-all cursor-pointer ${
-                                                            selectedCrypto === currency
-                                                                ? "bg-primary/10 text-primary font-medium"
-                                                                : "hover:bg-muted/50"
-                                                        }`}
-                                                    >
-                                                        <span className="font-mono">{currency.toUpperCase()}</span>
-                                                        {selectedCrypto === currency && <Check size={14} className="ml-auto text-primary" />}
-                                                    </button>
-                                                ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                )}
-
                 {/* ── Top Up Button ───────────────────── */}
                 <button
                     onClick={handleTopUp}
@@ -537,6 +569,112 @@ function TopUpContent() {
                 </div>
             </div>
 
+            {/* ── Crypto Currency Picker Modal ───────── */}
+            {showCryptoPicker && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+                    <div className="bg-card w-full max-w-lg rounded-xl border shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]">
+                        {/* Header */}
+                        <div className="p-5 border-b flex items-center justify-between shrink-0">
+                            <div>
+                                <h2 className="text-lg font-semibold">Choose Cryptocurrency</h2>
+                                <p className="text-xs text-muted-foreground mt-0.5">Select which crypto you want to pay with</p>
+                            </div>
+                            <button
+                                onClick={() => { setShowCryptoPicker(false); setCryptoSearch(""); }}
+                                className="inline-flex items-center justify-center rounded-md border hover:bg-accent size-8 cursor-pointer"
+                            >
+                                <X size={16} />
+                            </button>
+                        </div>
+
+                        {/* Search */}
+                        <div className="p-4 border-b shrink-0">
+                            <div className="relative">
+                                <SearchIcon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                <input
+                                    type="text"
+                                    placeholder="Search cryptocurrency..."
+                                    value={cryptoSearch}
+                                    onChange={(e) => setCryptoSearch(e.target.value)}
+                                    className="w-full h-10 pl-10 pr-4 text-sm rounded-lg border bg-transparent outline-none focus:border-ring focus:ring-ring/50 focus:ring-[3px]"
+                                    autoFocus
+                                />
+                            </div>
+                        </div>
+
+                        {/* Content */}
+                        <div className="overflow-y-auto flex-1 p-4">
+                            {loadingCurrencies ? (
+                                <div className="flex flex-col items-center justify-center py-12 gap-3">
+                                    <Loader2 size={24} className="animate-spin text-muted-foreground" />
+                                    <p className="text-sm text-muted-foreground">Loading currencies...</p>
+                                </div>
+                            ) : (
+                                <>
+                                    {/* Popular currencies — grid with icons */}
+                                    {filteredPopular.length > 0 && (
+                                        <div className="mb-4">
+                                            {!cryptoSearch && <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-3 px-1">Popular</p>}
+                                            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                                                {filteredPopular.map((c) => (
+                                                    <button
+                                                        key={c}
+                                                        onClick={() => handleCryptoSelect(c)}
+                                                        disabled={processing}
+                                                        className="flex flex-col items-center gap-2 rounded-xl border p-3.5 transition-all hover:border-primary hover:bg-primary/5 hover:shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed group"
+                                                    >
+                                                        <div className="transition-transform group-hover:scale-110">
+                                                            <CryptoIcon code={c} size={36} />
+                                                        </div>
+                                                        <div className="text-center">
+                                                            <p className="text-xs font-bold font-mono">{c.toUpperCase()}</p>
+                                                            <p className="text-[10px] text-muted-foreground truncate max-w-[80px]">{getCryptoName(c)}</p>
+                                                        </div>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Other currencies — compact list */}
+                                    {filteredOther.length > 0 && (
+                                        <div>
+                                            {!cryptoSearch && <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2 px-1">Other currencies</p>}
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                                                {filteredOther.map((c) => (
+                                                    <button
+                                                        key={c}
+                                                        onClick={() => handleCryptoSelect(c)}
+                                                        disabled={processing}
+                                                        className="flex items-center gap-2.5 rounded-lg border px-3 py-2.5 transition-all hover:border-primary hover:bg-primary/5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-left"
+                                                    >
+                                                        <CryptoIcon code={c} size={24} />
+                                                        <span className="text-xs font-mono font-medium">{c.toUpperCase()}</span>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {filteredPopular.length === 0 && filteredOther.length === 0 && (
+                                        <div className="text-center py-8">
+                                            <p className="text-sm text-muted-foreground">No currencies found for &quot;{cryptoSearch}&quot;</p>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="p-4 border-t shrink-0 bg-muted/10">
+                            <p className="text-[10px] text-muted-foreground text-center">
+                                Powered by NOWPayments · Fixed exchange rate · Payment expires in ~20 min
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* ── Polling Modal ──────────────────────── */}
             {pollStatus && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
@@ -554,11 +692,9 @@ function TopUpContent() {
                                     <p className="text-xs text-muted-foreground/60 mb-4 font-mono tabular-nums">
                                         {Math.floor(pollElapsed / 60).toString().padStart(2, "0")}:{(pollElapsed % 60).toString().padStart(2, "0")} elapsed
                                     </p>
-
                                     <div className="w-full bg-muted/30 rounded-full h-1 mb-4 overflow-hidden">
                                         <div className="h-full bg-primary/40 rounded-full animate-pulse" style={{ width: `${Math.min((pollElapsed / (30 * 60)) * 100, 100)}%` }} />
                                     </div>
-
                                     <button
                                         onClick={() => { setPollStatus(null); setPollingTxId(null); setPollElapsed(0); }}
                                         className="text-sm text-muted-foreground hover:text-foreground underline transition-colors cursor-pointer"
@@ -571,9 +707,9 @@ function TopUpContent() {
                             {pollStatus.status === "PENDING" && cryptoPayment && (
                                 <>
                                     <div className="mx-auto w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center mb-4">
-                                        <Clock size={32} className="text-amber-500" />
+                                        <CryptoIcon code={cryptoPayment.payCurrency} size={40} />
                                     </div>
-                                    <h2 className="text-xl font-semibold mb-2">Send Crypto Payment</h2>
+                                    <h2 className="text-xl font-semibold mb-2">Send {cryptoPayment.payCurrency.toUpperCase()}</h2>
                                     <p className="text-sm text-muted-foreground mb-4">
                                         Send exactly the amount below to the address provided.
                                     </p>
