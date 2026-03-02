@@ -32,6 +32,7 @@ const publicNav = [
 // Auth-only — visible when logged in
 const authNav = [
     { href: "/dashboard", icon: LayoutDashboard, label: "My Orders" },
+    { href: "/referral", icon: Zap, label: "Refer & Earn" },
     { href: "/support", icon: HeadphonesIcon, label: "Support" },
 ];
 

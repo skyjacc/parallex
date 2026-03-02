@@ -14,6 +14,7 @@ const pageTitles: Record<string, string> = {
     "/topup": "Top Up PRX",
     "/account": "Account",
     "/support": "Support",
+    "/referral": "Refer & Earn",
     "/admin": "Admin Panel",
 };
 

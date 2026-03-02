@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 
 // Routes that require authentication
-const protectedRoutes = ["/dashboard", "/admin", "/account", "/support"];
+const protectedRoutes = ["/dashboard", "/admin", "/account", "/support", "/referral"];
 
 export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
@@ -43,5 +43,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-    matcher: ["/dashboard/:path*", "/admin/:path*", "/account/:path*", "/support/:path*"],
+    matcher: ["/dashboard/:path*", "/admin/:path*", "/account/:path*", "/support/:path*", "/referral/:path*"],
 };

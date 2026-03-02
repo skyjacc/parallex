@@ -12,7 +12,7 @@ export async function POST(req: Request) {
     }
     try {
         const body = await req.json();
-        const { email, password, name } = body;
+        const { email, password, name, referralCode } = body;
 
         // ── Validation ──────────────────────────────────────────
         if (!email || !password) {
@@ -72,24 +72,41 @@ export async function POST(req: Request) {
         // ── Create user ─────────────────────────────────────────
         const hashedPassword = await hash(password, 12);
 
+        let referrer: { id: string } | null = null;
+        if (referralCode) {
+            referrer = await db.user.findUnique({ where: { referralCode: referralCode.toUpperCase() }, select: { id: true } });
+        }
+
+        const WELCOME_BONUS = 100;
+        const REFERRAL_BONUS = 50;
+
         const user = await db.user.create({
             data: {
                 email,
                 name: username,
                 password: hashedPassword,
-                prxBalance: 100, // Welcome bonus
+                prxBalance: WELCOME_BONUS + (referrer ? REFERRAL_BONUS : 0),
+                referredBy: referrer?.id || null,
             },
         });
+
+        if (referrer) {
+            await db.referral.create({
+                data: { referrerId: referrer.id, referredUserId: user.id, bonusPrx: REFERRAL_BONUS },
+            });
+            await db.user.update({
+                where: { id: referrer.id },
+                data: { prxBalance: { increment: REFERRAL_BONUS } },
+            });
+        }
 
         return NextResponse.json(
             {
                 ok: true,
-                user: {
-                    id: user.id,
-                    email: user.email,
-                    name: user.name,
-                },
-                message: "Account created! Welcome bonus: 100 PRX",
+                user: { id: user.id, email: user.email, name: user.name },
+                message: referrer
+                    ? `Account created! Welcome bonus: ${WELCOME_BONUS} PRX + ${REFERRAL_BONUS} PRX referral bonus!`
+                    : `Account created! Welcome bonus: ${WELCOME_BONUS} PRX`,
             },
             { status: 201 }
         );
