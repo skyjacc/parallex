@@ -36,9 +36,10 @@ interface Product {
 interface BuyResult {
     orderId: string;
     productName: string;
-    key: string;
+    key: string | null;
     costPrx: number;
     newBalance: number;
+    status: "COMPLETED" | "REVIEW";
 }
 
 const features = [
@@ -87,7 +88,11 @@ export default function ProductPage() {
             if (data.ok) {
                 setBuyResult(data);
                 update();
-                toast.success("Purchase successful!", { description: `Key for ${data.productName} delivered.` });
+                if (data.status === "REVIEW") {
+                    toast.info("Order under review", { description: "Your purchase is being reviewed. Key will be delivered after approval." });
+                } else {
+                    toast.success("Purchase successful!", { description: `Key for ${data.productName} delivered.` });
+                }
             } else {
                 setError(data.error || "Purchase failed");
                 toast.error(data.error || "Purchase failed");
@@ -141,28 +146,43 @@ export default function ProductPage() {
 
                 {buyResult ? (
                     <div className="rounded-2xl border bg-card overflow-hidden">
-                        <div className="p-8 text-center border-b bg-emerald-500/5">
-                            <CheckCircle size={48} className="text-emerald-500 mx-auto mb-4" />
-                            <h2 className="text-2xl font-bold mb-1">Purchase Successful!</h2>
-                            <p className="text-sm text-muted-foreground">
-                                You bought <strong>{buyResult.productName}</strong> for {buyResult.costPrx} PRX
-                            </p>
+                        <div className={`p-8 text-center border-b ${buyResult.status === "REVIEW" ? "bg-amber-500/5" : "bg-emerald-500/5"}`}>
+                            {buyResult.status === "REVIEW" ? (
+                                <>
+                                    <Clock size={48} className="text-amber-400 mx-auto mb-4" />
+                                    <h2 className="text-2xl font-bold mb-1">Order Under Review</h2>
+                                    <p className="text-sm text-muted-foreground">
+                                        Your purchase of <strong>{buyResult.productName}</strong> is being reviewed. Key will be delivered after approval.
+                                    </p>
+                                </>
+                            ) : (
+                                <>
+                                    <CheckCircle size={48} className="text-emerald-500 mx-auto mb-4" />
+                                    <h2 className="text-2xl font-bold mb-1">Purchase Successful!</h2>
+                                    <p className="text-sm text-muted-foreground">
+                                        You bought <strong>{buyResult.productName}</strong> for {buyResult.costPrx} PRX
+                                    </p>
+                                </>
+                            )}
                         </div>
                         <div className="p-6 flex flex-col gap-4">
-                            <div>
-                                <label className="text-xs font-medium text-muted-foreground block mb-2">YOUR KEY</label>
-                                <div className="flex items-center gap-2">
-                                    <code className="flex-1 bg-muted/30 border rounded-lg px-4 py-3 font-mono text-sm break-all">
-                                        {buyResult.key}
-                                    </code>
-                                    <button
-                                        onClick={copyKey}
-                                        className="inline-flex items-center justify-center rounded-md border hover:bg-accent hover:text-accent-foreground size-10 transition-all cursor-pointer shrink-0"
-                                    >
-                                        {copied ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} />}
-                                    </button>
+                            {buyResult.key ? (
+                                <div>
+                                    <label className="text-xs font-medium text-muted-foreground block mb-2">YOUR KEY</label>
+                                    <div className="flex items-center gap-2">
+                                        <code className="flex-1 bg-muted/30 border rounded-lg px-4 py-3 font-mono text-sm break-all">
+                                            {buyResult.key}
+                                        </code>
+                                        <button onClick={copyKey} className="inline-flex items-center justify-center rounded-md border hover:bg-accent hover:text-accent-foreground size-10 transition-all cursor-pointer shrink-0">
+                                            {copied ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} />}
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
+                            ) : (
+                                <div className="rounded-lg bg-amber-500/5 border border-amber-500/10 p-4 text-center">
+                                    <p className="text-sm text-amber-400">Your key will appear here and in your dashboard once approved.</p>
+                                </div>
+                            )}
                             <div className="flex justify-between text-sm">
                                 <span className="text-muted-foreground">Order ID</span>
                                 <code className="text-xs font-mono bg-muted/40 px-1.5 py-0.5 rounded">{buyResult.orderId}</code>

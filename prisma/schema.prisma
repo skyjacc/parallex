@@ -30,6 +30,17 @@ enum TransactionType {
   WITHDRAWAL
 }
 
+enum OrderStatus {
+  COMPLETED
+  REVIEW
+  REJECTED
+}
+
+enum TicketStatus {
+  OPEN
+  CLOSED
+}
+
 // ── User ─────────────────────────────────────────────────────
 // Пользователь платформы. prxBalance — баланс внутренней валюты.
 
@@ -46,6 +57,9 @@ model User {
 
   orders       Order[]
   transactions Transaction[]
+  tickets      Ticket[]
+  messages     Message[]
+  flagged      Boolean  @default(false)
 
   @@index([role])
 }
@@ -91,12 +105,13 @@ model Stock {
 // Запись о покупке. stockId уникален — один ключ продаётся один раз.
 
 model Order {
-  id        String   @id @default(cuid())
+  id        String      @id @default(cuid())
   userId    String
   productId String
-  stockId   String   @unique
+  stockId   String      @unique
   costPrx   Int
-  createdAt DateTime @default(now())
+  status    OrderStatus @default(COMPLETED)
+  createdAt DateTime    @default(now())
 
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
@@ -104,6 +119,7 @@ model Order {
 
   @@index([userId])
   @@index([productId])
+  @@index([status])
 }
 
 // ── Transaction ──────────────────────────────────────────────
@@ -130,6 +146,41 @@ model Transaction {
 // ── PaymentMethod ────────────────────────────────────────────
 // Настраиваемые способы оплаты. Admin включает/выключает из панели.
 
+// ── Ticket ───────────────────────────────────────────────────
+// Тикет саппорта. Пользователь создаёт, admin отвечает.
+
+model Ticket {
+  id        String       @id @default(cuid())
+  userId    String
+  subject   String
+  status    TicketStatus @default(OPEN)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+// ── Message ──────────────────────────────────────────────────
+
+model Message {
+  id        String   @id @default(cuid())
+  ticketId  String
+  senderId  String
+  senderRole Role
+  content   String
+  createdAt DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  sender User   @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+}
+
+// ── PaymentMethod ────────────────────────────────────────────
 model PaymentMethod {
   id          String   @id @default(cuid())
   code        String   @unique          // "stripe", "moneymotion", "paypal", etc.

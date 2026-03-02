@@ -9,7 +9,8 @@ import { toast } from "sonner";
 interface Order {
     id: string;
     productName: string;
-    key: string;
+    key: string | null;
+    status: "COMPLETED" | "REVIEW" | "REJECTED";
     costPrx: number;
     createdAt: string;
 }
@@ -150,15 +151,27 @@ export default function DashboardPage() {
                                             <span className="text-sm font-medium">{order.productName}</span>
                                             <span className="text-xs font-mono text-muted-foreground">{order.costPrx} PRX</span>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <div className="flex-1 flex items-center gap-2">
-                                                <Key size={12} className="text-muted-foreground shrink-0" />
-                                                <code className="text-xs font-mono text-muted-foreground bg-muted/30 px-2 py-1 rounded flex-1 break-all">{order.key}</code>
+                                        {order.status === "REVIEW" ? (
+                                            <div className="flex items-center gap-2 bg-amber-500/5 border border-amber-500/10 rounded px-2 py-1.5">
+                                                <Clock size={12} className="text-amber-400 shrink-0" />
+                                                <span className="text-xs text-amber-400">Under review — key will be delivered after approval</span>
                                             </div>
-                                            <button onClick={() => copyKey(order.id, order.key)} className="inline-flex items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground size-7 transition-all cursor-pointer shrink-0">
-                                                {copiedId === order.id ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
-                                            </button>
-                                        </div>
+                                        ) : order.status === "REJECTED" ? (
+                                            <div className="flex items-center gap-2 bg-red-500/5 border border-red-500/10 rounded px-2 py-1.5">
+                                                <XCircle size={12} className="text-red-400 shrink-0" />
+                                                <span className="text-xs text-red-400">Rejected — PRX refunded</span>
+                                            </div>
+                                        ) : order.key ? (
+                                            <div className="flex items-center gap-2">
+                                                <div className="flex-1 flex items-center gap-2">
+                                                    <Key size={12} className="text-muted-foreground shrink-0" />
+                                                    <code className="text-xs font-mono text-muted-foreground bg-muted/30 px-2 py-1 rounded flex-1 break-all">{order.key}</code>
+                                                </div>
+                                                <button onClick={() => copyKey(order.id, order.key!)} className="inline-flex items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground size-7 transition-all cursor-pointer shrink-0">
+                                                    {copiedId === order.id ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                                                </button>
+                                            </div>
+                                        ) : null}
                                         <div className="flex items-center justify-between mt-2">
                                             <code className="text-[10px] text-muted-foreground/60">{order.id}</code>
                                             <span className="text-[10px] text-muted-foreground">{new Date(order.createdAt).toLocaleString()}</span>

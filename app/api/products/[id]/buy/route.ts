@@ -4,6 +4,8 @@ import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
 
+const FRAUD_CARD_THRESHOLD = 3;
+
 export async function POST(
     req: Request,
     { params }: { params: Promise<{ id: string }> }
@@ -23,55 +25,55 @@ export async function POST(
 
         const { id: productId } = await params;
 
-        // Atomic transaction: check balance → find key → deduct → mark sold → create order
         const result = await db.$transaction(async (tx) => {
-            // 1. Get user with current balance
             const user = await tx.user.findUnique({ where: { email: session.user!.email! } });
             if (!user) throw new Error("User not found");
 
-            // 2. Get product
             const product = await tx.product.findUnique({ where: { id: productId } });
             if (!product) throw new Error("Product not found");
 
-            // 3. Check balance
             if (user.prxBalance < product.pricePrx) {
-                throw new Error(`Insufficient balance. Need ${product.pricePrx} PRX, have ${user.prxBalance.toFixed(0)} PRX`);
+                throw new Error(`Insufficient balance. Need ${product.pricePrx} PRX, have ${user.prxBalance} PRX`);
             }
 
-            // 4. Find available stock
-            const stock = await tx.stock.findFirst({
-                where: { productId, isSold: false },
-            });
+            const stock = await tx.stock.findFirst({ where: { productId, isSold: false } });
             if (!stock) throw new Error("Out of stock. No keys available for this product.");
 
-            // 5. Deduct balance
+            // Check fraud: count unique cards used for deposits
+            const uniqueCards = await tx.transaction.findMany({
+                where: { userId: user.id, status: "COMPLETED", cardLast4: { not: null } },
+                select: { cardLast4: true, cardBrand: true },
+                distinct: ["cardLast4"],
+            });
+            const isFraudRisk = user.flagged || uniqueCards.length >= FRAUD_CARD_THRESHOLD;
+
             await tx.user.update({
                 where: { id: user.id },
                 data: { prxBalance: { decrement: product.pricePrx } },
             });
 
-            // 6. Mark stock as sold
             await tx.stock.update({
                 where: { id: stock.id },
                 data: { isSold: true },
             });
 
-            // 7. Create order
             const order = await tx.order.create({
                 data: {
                     userId: user.id,
                     productId,
                     stockId: stock.id,
                     costPrx: product.pricePrx,
+                    status: isFraudRisk ? "REVIEW" : "COMPLETED",
                 },
             });
 
             return {
                 orderId: order.id,
                 productName: product.name,
-                key: stock.content,
+                key: isFraudRisk ? null : stock.content,
                 costPrx: product.pricePrx,
                 newBalance: user.prxBalance - product.pricePrx,
+                status: isFraudRisk ? "REVIEW" as const : "COMPLETED" as const,
             };
         });
 

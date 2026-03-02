@@ -15,6 +15,7 @@ import {
     LogOut,
     CircleUser,
     Zap,
+    HeadphonesIcon,
 } from "lucide-react";
 import { useSidebar } from "./SidebarContext";
 import { useState, useRef, useEffect } from "react";
@@ -31,6 +32,7 @@ const publicNav = [
 // Auth-only — visible when logged in
 const authNav = [
     { href: "/dashboard", icon: LayoutDashboard, label: "My Orders" },
+    { href: "/support", icon: HeadphonesIcon, label: "Support" },
 ];
 
 // Admin-only — visible when role === ADMIN

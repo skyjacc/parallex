@@ -38,6 +38,7 @@ export async function GET(req: Request) {
                 productName: o.product.name,
                 stockContent: o.stock.content,
                 costPrx: o.costPrx,
+                status: o.status,
                 createdAt: o.createdAt.toISOString(),
             })),
         });

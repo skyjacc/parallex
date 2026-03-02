@@ -29,7 +29,8 @@ export async function GET() {
             orders: orders.map((o) => ({
                 id: o.id,
                 productName: o.product.name,
-                key: o.stock.content,
+                key: o.status === "COMPLETED" ? o.stock.content : null,
+                status: o.status,
                 costPrx: o.costPrx,
                 createdAt: o.createdAt.toISOString(),
             })),
