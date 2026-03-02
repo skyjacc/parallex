@@ -23,32 +23,39 @@ function getBonus(prx: number) {
 
 const quickAmounts = [100, 500, 1000, 2500, 5000, 10000];
 
-/* ── Crypto metadata: ticker → name + cryptologos.cc slug ── */
-const cryptoMeta: Record<string, { name: string; slug: string }> = {
-    btc: { name: "Bitcoin", slug: "bitcoin-btc-logo" },
-    eth: { name: "Ethereum", slug: "ethereum-eth-logo" },
-    usdt: { name: "Tether", slug: "tether-usdt-logo" },
-    ltc: { name: "Litecoin", slug: "litecoin-ltc-logo" },
-    xmr: { name: "Monero", slug: "monero-xmr-logo" },
-    trx: { name: "TRON", slug: "tron-trx-logo" },
-    sol: { name: "Solana", slug: "solana-sol-logo" },
-    doge: { name: "Dogecoin", slug: "dogecoin-doge-logo" },
-    bnb: { name: "BNB", slug: "bnb-bnb-logo" },
-    matic: { name: "Polygon", slug: "polygon-matic-logo" },
-    usdc: { name: "USD Coin", slug: "usd-coin-usdc-logo" },
-    ada: { name: "Cardano", slug: "cardano-ada-logo" },
-    dot: { name: "Polkadot", slug: "polkadot-new-dot-logo" },
-    avax: { name: "Avalanche", slug: "avalanche-avax-logo" },
-    xlm: { name: "Stellar", slug: "stellar-xlm-logo" },
-    xrp: { name: "XRP", slug: "xrp-xrp-logo" },
-    shib: { name: "Shiba Inu", slug: "shiba-inu-shib-logo" },
-    dai: { name: "Dai", slug: "multi-collateral-dai-dai-logo" },
-    atom: { name: "Cosmos", slug: "cosmos-atom-logo" },
-    algo: { name: "Algorand", slug: "algorand-algo-logo" },
-    near: { name: "NEAR", slug: "near-protocol-near-logo" },
-    apt: { name: "Aptos", slug: "aptos-apt-logo" },
-    ftm: { name: "Fantom", slug: "fantom-ftm-logo" },
-    ton: { name: "Toncoin", slug: "toncoin-ton-logo" },
+/* ── Crypto metadata: ticker → name + cryptologos.cc thumb name ── */
+const cryptoMeta: Record<string, { name: string; thumb: string }> = {
+    btc: { name: "Bitcoin", thumb: "bitcoin" },
+    eth: { name: "Ethereum", thumb: "ethereum" },
+    usdt: { name: "Tether", thumb: "tether" },
+    ltc: { name: "Litecoin", thumb: "litecoin" },
+    xmr: { name: "Monero", thumb: "monero" },
+    trx: { name: "TRON", thumb: "tron" },
+    sol: { name: "Solana", thumb: "solana" },
+    doge: { name: "Dogecoin", thumb: "dogecoin" },
+    bnb: { name: "BNB", thumb: "bnb" },
+    matic: { name: "Polygon", thumb: "polygon" },
+    usdc: { name: "USD Coin", thumb: "usd-coin" },
+    ada: { name: "Cardano", thumb: "cardano" },
+    dot: { name: "Polkadot", thumb: "polkadot-new" },
+    avax: { name: "Avalanche", thumb: "avalanche" },
+    xlm: { name: "Stellar", thumb: "stellar" },
+    xrp: { name: "XRP", thumb: "xrp" },
+    shib: { name: "Shiba Inu", thumb: "shiba-inu" },
+    dai: { name: "Dai", thumb: "multi-collateral-dai" },
+    atom: { name: "Cosmos", thumb: "cosmos" },
+    algo: { name: "Algorand", thumb: "algorand" },
+    near: { name: "NEAR", thumb: "near-protocol" },
+    apt: { name: "Aptos", thumb: "aptos" },
+    ftm: { name: "Fantom", thumb: "fantom" },
+    ton: { name: "Toncoin", thumb: "toncoin" },
+    link: { name: "Chainlink", thumb: "chainlink" },
+    uni: { name: "Uniswap", thumb: "uniswap" },
+    aave: { name: "Aave", thumb: "aave" },
+    fil: { name: "Filecoin", thumb: "filecoin" },
+    arb: { name: "Arbitrum", thumb: "arbitrum" },
+    op: { name: "Optimism", thumb: "optimism-ethereum" },
+    pepe: { name: "Pepe", thumb: "pepe" },
 };
 
 function CryptoIcon({ code, size = 32 }: { code: string; size?: number }) {
@@ -57,7 +64,7 @@ function CryptoIcon({ code, size = 32 }: { code: string; size?: number }) {
         return (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-                src={`https://cryptologos.cc/logos/${meta.slug}.svg`}
+                src={`https://cryptologos.cc/thumbs/${meta.thumb}.png?v=040`}
                 alt={meta.name}
                 width={size}
                 height={size}
