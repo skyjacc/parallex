@@ -54,6 +54,15 @@ export default function AdminUsersPage() {
         } catch { /* ignore */ }
     };
 
+    const unflagUser = async () => {
+        if (!detailId) return;
+        try {
+            const res = await fetch("/api/admin/users", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: detailId, flagged: false }) });
+            const data = await res.json();
+            if (data.ok) { toast.success("Flag removed"); openDetail(detailId); }
+        } catch { /* ignore */ }
+    };
+
     const filtered = users.filter((u) => u.name.toLowerCase().includes(searchQuery.toLowerCase()) || u.email.toLowerCase().includes(searchQuery.toLowerCase()));
     const totalBalance = users.reduce((s, u) => s + u.prxBalance, 0);
 
@@ -187,7 +196,11 @@ export default function AdminUsersPage() {
                                                     </div>
                                                 </div>
                                             ))}
-                                            {!detail.user.flagged && (
+                                            {detail.user.flagged ? (
+                                                <button onClick={unflagUser} className="mt-2 inline-flex items-center justify-center rounded-md text-sm font-medium border border-emerald-500/20 bg-emerald-500/5 text-emerald-400 hover:bg-emerald-500/10 h-9 px-4 gap-2 cursor-pointer transition-colors">
+                                                    <Shield size={14} /> Remove Flag
+                                                </button>
+                                            ) : (
                                                 <button onClick={flagUser} className="mt-2 inline-flex items-center justify-center rounded-md text-sm font-medium border border-red-500/20 bg-red-500/5 text-red-400 hover:bg-red-500/10 h-9 px-4 gap-2 cursor-pointer transition-colors">
                                                     <Flag size={14} /> Flag as Suspicious
                                                 </button>
