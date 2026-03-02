@@ -13,6 +13,7 @@ interface Product {
     categorySlug: string | null;
     cheatType: string | null;
     detectionStatus: string;
+    updatedAt: string;
 }
 
 interface Category { name: string; slug: string; productCount: number }
@@ -153,15 +154,17 @@ export default function StatusPage() {
                                             <Link
                                                 key={p.id}
                                                 href={`/shop/${p.id}`}
-                                                className="flex items-center justify-between px-4 py-3 hover:bg-muted/10 transition-colors"
+                                                className="flex items-center justify-between px-4 py-3 hover:bg-muted/10 transition-colors gap-3"
                                             >
-                                                <div className="flex items-center gap-3 min-w-0">
+                                                <div className="flex items-center gap-3 min-w-0 flex-1">
                                                     <span className={`w-1.5 h-6 rounded-full shrink-0 ${st.dot}`} />
                                                     <div className="min-w-0">
                                                         <p className="text-sm font-medium truncate">{p.name}</p>
-                                                        {p.cheatType && (
-                                                            <p className="text-[10px] text-muted-foreground/60">{p.cheatType.toLowerCase()}</p>
-                                                        )}
+                                                        <p className="text-[10px] text-muted-foreground/60 flex items-center gap-1.5">
+                                                            {p.cheatType && <span>{p.cheatType.toLowerCase()}</span>}
+                                                            {p.cheatType && <span>·</span>}
+                                                            <span>Last Update: {timeAgo(p.updatedAt)}</span>
+                                                        </p>
                                                     </div>
                                                 </div>
                                                 <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-md shrink-0 ${st.bg} ${st.color}`}>

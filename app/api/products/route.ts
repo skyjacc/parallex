@@ -45,6 +45,7 @@ export async function GET(req: Request) {
                 cpuSupport: p.cpuSupport,
                 featured: p.featured,
                 createdAt: p.createdAt.toISOString(),
+                updatedAt: p.updatedAt.toISOString(),
             })),
             categories: categories.map((c) => ({
                 id: c.id,
