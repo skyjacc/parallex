@@ -4,7 +4,7 @@ import { useState } from "react";
 import { HelpCircle, ChevronDown } from "lucide-react";
 
 const faqs = [
-    { q: "What payment methods do you accept?", a: "We accept credit/debit cards via MoneyMotion (Visa, Mastercard). Crypto and PayPal support coming soon. All payments are processed securely." },
+    { q: "What payment methods do you accept?", a: "We accept credit/debit cards via MoneyMotion (Visa, Mastercard) and cryptocurrency (Bitcoin, Ethereum). All payments are processed securely." },
     { q: "My payment failed, what do I do?", a: "If your payment failed, please try again with a different card. If the issue persists, create a support ticket and we will help resolve it." },
     { q: "My product isn't working, what do I do?", a: "First, make sure you followed the setup guide. If the issue persists, create a support ticket with your order ID and we'll assist you." },
     { q: "Can I get a refund?", a: "All sales are final. We do not offer refunds on digital products. However, if a product is detected or non-functional, time will be compensated." },

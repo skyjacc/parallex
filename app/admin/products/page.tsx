@@ -5,7 +5,7 @@ import { Plus, Package, Key, Search, ChevronDown, Loader2, Pencil, Trash2, Save,
 import { toast } from "sonner";
 
 interface StockItem { id: string; content: string; isSold: boolean }
-interface Product { id: string; name: string; description: string; pricePrx: number; stock: StockItem[]; totalSold: number; createdAt: string }
+interface Product { id: string; name: string; description: string; pricePrx: number; stockAvailable: number; stockTotal: number; totalSold: number; createdAt: string }
 
 export default function AdminProductsPage() {
     const [products, setProducts] = useState<Product[]>([]);
@@ -13,6 +13,8 @@ export default function AdminProductsPage() {
     const [addOpen, setAddOpen] = useState(false);
     const [stockOpen, setStockOpen] = useState<string | null>(null);
     const [expandedProduct, setExpandedProduct] = useState<string | null>(null);
+    const [expandedStock, setExpandedStock] = useState<StockItem[]>([]);
+    const [expandedStockLoading, setExpandedStockLoading] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editForm, setEditForm] = useState({ name: "", description: "", pricePrx: "" });
     const [saving, setSaving] = useState(false);
@@ -62,6 +64,17 @@ export default function AdminProductsPage() {
 
     const filtered = products.filter((p) => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
+    const toggleExpand = async (id: string) => {
+        if (expandedProduct === id) { setExpandedProduct(null); setExpandedStock([]); return; }
+        setExpandedProduct(id); setExpandedStockLoading(true); setExpandedStock([]);
+        try {
+            const r = await fetch(`/api/admin/products/${id}/stock`);
+            const d = await r.json();
+            if (d.ok) setExpandedStock(d.stocks);
+        } catch { /* ignore */ }
+        setExpandedStockLoading(false);
+    };
+
     return (
         <div className="flex flex-col gap-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -81,7 +94,6 @@ export default function AdminProductsPage() {
             ) : (
                 <div className="flex flex-col gap-3">
                     {filtered.map((product) => {
-                        const available = product.stock.filter((s) => !s.isSold).length;
                         const isExpanded = expandedProduct === product.id;
                         const isEditing = editingId === product.id;
 
@@ -114,15 +126,15 @@ export default function AdminProductsPage() {
                                         </div>
                                         <div className="hidden sm:flex items-center gap-4 shrink-0">
                                             <span className="font-mono text-sm">{product.pricePrx} PRX</span>
-                                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${available > 0 ? "bg-emerald-500/10 text-emerald-500" : "bg-red-500/10 text-red-500"}`}>
-                                                {available} avail
+                                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${product.stockAvailable > 0 ? "bg-emerald-500/10 text-emerald-500" : "bg-red-500/10 text-red-500"}`}>
+                                                {product.stockAvailable} avail
                                             </span>
                                             <span className="text-xs text-muted-foreground">{product.totalSold} sold</span>
                                         </div>
                                         <div className="flex items-center gap-1 shrink-0">
                                             <button onClick={() => startEdit(product)} className="inline-flex items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground size-8 transition-all cursor-pointer" title="Edit"><Pencil size={14} /></button>
                                             <button onClick={() => setStockOpen(product.id)} className="inline-flex items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground size-8 transition-all cursor-pointer" title="Add keys"><Key size={14} /></button>
-                                            <button onClick={() => setExpandedProduct(isExpanded ? null : product.id)} className={`inline-flex items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground size-8 transition-all cursor-pointer ${isExpanded ? "bg-accent" : ""}`} title="View keys">
+                                            <button onClick={() => toggleExpand(product.id)} className={`inline-flex items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground size-8 transition-all cursor-pointer ${isExpanded ? "bg-accent" : ""}`} title="View keys">
                                                 <ChevronDown size={14} className={`transition-transform ${isExpanded ? "rotate-180" : ""}`} />
                                             </button>
                                             <button onClick={() => deleteProduct(product.id, product.name)} className="inline-flex items-center justify-center rounded-md hover:bg-red-500/10 hover:text-red-400 size-8 transition-all cursor-pointer" title="Delete"><Trash2 size={14} /></button>
@@ -132,12 +144,14 @@ export default function AdminProductsPage() {
 
                                 {isExpanded && (
                                     <div className="bg-muted/10 border-t px-4 py-3">
-                                        <p className="text-xs font-medium text-muted-foreground mb-2">STOCK KEYS ({product.stock.length})</p>
-                                        {product.stock.length === 0 ? (
+                                        <p className="text-xs font-medium text-muted-foreground mb-2">STOCK KEYS ({product.stockTotal})</p>
+                                        {expandedStockLoading ? (
+                                            <div className="flex items-center justify-center py-4"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
+                                        ) : expandedStock.length === 0 ? (
                                             <p className="text-xs text-muted-foreground py-2">No keys added yet</p>
                                         ) : (
                                             <div className="grid gap-1.5 max-h-60 overflow-y-auto">
-                                                {product.stock.map((s) => (
+                                                {expandedStock.map((s) => (
                                                     <div key={s.id} className="flex items-center justify-between bg-background rounded-md px-3 py-2 border">
                                                         <code className="text-xs font-mono text-muted-foreground truncate">{s.content}</code>
                                                         <span className={`text-[10px] rounded-full px-2 py-0.5 shrink-0 ml-2 ${s.isSold ? "bg-red-500/10 text-red-400" : "bg-emerald-500/10 text-emerald-400"}`}>{s.isSold ? "sold" : "available"}</span>

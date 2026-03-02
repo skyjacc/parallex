@@ -11,8 +11,11 @@ interface UserDetail { user: UserRow & { flagged: boolean }; timeline: TimelineE
 
 export default function AdminUsersPage() {
     const [users, setUsers] = useState<UserRow[]>([]);
+    const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
+    const [page, setPage] = useState(0);
+    const PAGE_SIZE = 50;
     const [detailId, setDetailId] = useState<string | null>(null);
     const [detail, setDetail] = useState<UserDetail | null>(null);
     const [detailLoading, setDetailLoading] = useState(false);
@@ -21,8 +24,9 @@ export default function AdminUsersPage() {
     const [editBalance, setEditBalance] = useState("");
     const [saving, setSaving] = useState(false);
 
-    const loadUsers = () => { setLoading(true); fetch("/api/admin/users").then((r) => r.json()).then((d) => { if (d.ok) setUsers(d.users); }).finally(() => setLoading(false)); };
+    const loadUsers = (p = page) => { setLoading(true); fetch(`/api/admin/users?limit=${PAGE_SIZE}&offset=${p * PAGE_SIZE}`).then((r) => r.json()).then((d) => { if (d.ok) { setUsers(d.users); setTotal(d.total); } }).finally(() => setLoading(false)); };
     useEffect(() => { loadUsers(); }, []);
+    useEffect(() => { loadUsers(page); }, [page]);
 
     const openDetail = async (id: string) => {
         setDetailId(id); setDetailLoading(true); setDetailTab("activity"); setDetail(null);
@@ -40,7 +44,7 @@ export default function AdminUsersPage() {
         try {
             const res = await fetch("/api/admin/users", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: detailId, role: editRole, prxBalance: Number(editBalance) }) });
             const data = await res.json();
-            if (data.ok) { toast.success("User updated"); loadUsers(); openDetail(detailId); } else toast.error(data.error);
+            if (data.ok) { toast.success("User updated"); loadUsers(page); openDetail(detailId); } else toast.error(data.error);
         } catch { toast.error("Network error"); }
         setSaving(false);
     };
@@ -69,7 +73,7 @@ export default function AdminUsersPage() {
     return (
         <div className="flex flex-col gap-6">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <div className="rounded-lg border bg-card p-4"><p className="text-xs text-muted-foreground mb-1">Total Users</p><p className="text-2xl font-mono font-semibold">{users.length}</p></div>
+                <div className="rounded-lg border bg-card p-4"><p className="text-xs text-muted-foreground mb-1">Total Users</p><p className="text-2xl font-mono font-semibold">{total}</p></div>
                 <div className="rounded-lg border bg-card p-4"><p className="text-xs text-muted-foreground mb-1">PRX in Circulation</p><p className="text-2xl font-mono font-semibold">{totalBalance.toLocaleString()}</p></div>
                 <div className="rounded-lg border bg-card p-4"><p className="text-xs text-muted-foreground mb-1">Total Orders</p><p className="text-2xl font-mono font-semibold">{users.reduce((s, u) => s + u.ordersCount, 0)}</p></div>
                 <div className="rounded-lg border bg-card p-4"><p className="text-xs text-muted-foreground mb-1">Admins</p><p className="text-2xl font-mono font-semibold">{users.filter((u) => u.role === "ADMIN").length}</p></div>
@@ -81,6 +85,7 @@ export default function AdminUsersPage() {
             </div>
 
             {loading ? <div className="flex items-center justify-center py-20"><Loader2 size={24} className="animate-spin text-muted-foreground" /></div> : (
+                <>
                 <div className="border rounded-lg overflow-hidden">
                     <table className="w-full">
                         <thead><tr className="border-b bg-muted/30"><th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">User</th><th className="text-left text-xs font-medium text-muted-foreground px-4 py-3 hidden sm:table-cell">Role</th><th className="text-left text-xs font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">Balance</th><th className="text-left text-xs font-medium text-muted-foreground px-4 py-3 hidden lg:table-cell">Orders</th><th className="text-right text-xs font-medium text-muted-foreground px-4 py-3"></th></tr></thead>
@@ -98,6 +103,18 @@ export default function AdminUsersPage() {
                     </table>
                     {filtered.length === 0 && <div className="text-center py-12"><Users size={32} className="mx-auto text-muted-foreground/40 mb-3" /><p className="text-sm text-muted-foreground">No users found</p></div>}
                 </div>
+                {total > PAGE_SIZE && (
+                    <div className="flex items-center justify-between mt-3">
+                        <span className="text-xs text-muted-foreground">
+                            Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, total)} of {total}
+                        </span>
+                        <div className="flex gap-2">
+                            <button disabled={page === 0} onClick={() => setPage((p) => p - 1)} className="inline-flex items-center justify-center rounded-md text-sm font-medium border bg-background shadow-xs hover:bg-accent h-8 px-3 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-colors">Prev</button>
+                            <button disabled={(page + 1) * PAGE_SIZE >= total} onClick={() => setPage((p) => p + 1)} className="inline-flex items-center justify-center rounded-md text-sm font-medium border bg-background shadow-xs hover:bg-accent h-8 px-3 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-colors">Next</button>
+                        </div>
+                    </div>
+                )}
+                </>
             )}
 
             {/* Detail drawer */}

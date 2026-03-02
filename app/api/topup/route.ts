@@ -79,7 +79,20 @@ export async function POST(req: Request) {
         const moneymotionId = `mm_${Date.now()}_${crypto.randomUUID()}`;
 
         // ── Gateway-specific logic ──────────────────────────────
-        const gatewayHandlers: Record<string, () => Promise<{ redirectUrl?: string; checkoutSessionId?: string; error?: string }>> = {
+        const gatewayHandlers: Record<string, () => Promise<{
+            redirectUrl?: string;
+            checkoutSessionId?: string;
+            error?: string;
+            cryptoPayment?: {
+                paymentId: string;
+                payAddress: string;
+                payAmount: number;
+                payCurrency: string;
+                payinExtraId: string | null;
+                expiresAt: string | null;
+                network: string;
+            };
+        }>> = {
             moneymotion: async () => {
                 const apiKey = process.env.MONEYMOTION_API_KEY;
                 if (!apiKey || apiKey === "your-moneymotion-api-key") {
@@ -147,8 +160,61 @@ export async function POST(req: Request) {
             },
 
             crypto: async () => {
-                console.error("[TOPUP] Crypto integration not yet configured.");
-                return { error: "not_configured" };
+                const apiKey = process.env.NOWPAYMENTS_API_KEY;
+                if (!apiKey || apiKey === "your-nowpayments-api-key") {
+                    console.error("[TOPUP] NOWPAYMENTS_API_KEY not configured. Set it in .env");
+                    return { error: "not_configured" };
+                }
+
+                try {
+                    const callbackUrl = `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/webhook/nowpayments`;
+
+                    const npRes = await fetch("https://api.nowpayments.io/v1/payment", {
+                        method: "POST",
+                        headers: {
+                            "x-api-key": apiKey,
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({
+                            price_amount: usdAmount,
+                            price_currency: "usd",
+                            pay_currency: "btc",
+                            ipn_callback_url: callbackUrl,
+                            order_id: moneymotionId,
+                            order_description: `PRX Top-up: ${prxAmount} PRX (+${bonusPrx} bonus)`,
+                            is_fixed_rate: true,
+                            is_fee_paid_by_user: false,
+                        }),
+                    });
+
+                    if (npRes.ok) {
+                        const npData = await npRes.json();
+                        const paymentId = npData.payment_id;
+
+                        if (paymentId) {
+                            // Use NOWPayments payment_id as our external reference
+                            return {
+                                checkoutSessionId: `np_${paymentId}`,
+                                cryptoPayment: {
+                                    paymentId: String(paymentId),
+                                    payAddress: npData.pay_address,
+                                    payAmount: npData.pay_amount,
+                                    payCurrency: npData.pay_currency,
+                                    payinExtraId: npData.payin_extra_id || null,
+                                    expiresAt: npData.expiration_estimate_date || null,
+                                    network: npData.network || npData.pay_currency,
+                                },
+                            };
+                        }
+                    }
+
+                    const errBody = await npRes.text().catch(() => "");
+                    console.error(`[TOPUP] NOWPayments API returned ${npRes.status}: ${errBody}`);
+                    return { error: "gateway_error" };
+                } catch (e) {
+                    console.error("[TOPUP] NOWPayments API network error:", e);
+                    return { error: "gateway_unreachable" };
+                }
             },
         };
 
@@ -193,6 +259,17 @@ export async function POST(req: Request) {
             },
         });
 
+        // ── Crypto payment — return payment details instead of redirect ──
+        if (result.cryptoPayment) {
+            return NextResponse.json({
+                ok: true,
+                transactionId: transaction.id,
+                totalPrx,
+                bonusPrx,
+                cryptoPayment: result.cryptoPayment,
+            });
+        }
+
         if (result.redirectUrl) {
             return NextResponse.json({
                 ok: true,
@@ -203,11 +280,11 @@ export async function POST(req: Request) {
             });
         }
 
-        // Should not reach here if handler returned successfully without redirect
+        // Should not reach here if handler returned successfully without redirect or crypto
         return NextResponse.json({
             ok: false,
             error: "Payment gateway did not return a checkout URL. Please try again.",
-            ...(isAdmin ? { _admin: "Handler returned success but no redirectUrl" } : {}),
+            ...(isAdmin ? { _admin: "Handler returned success but no redirectUrl or cryptoPayment" } : {}),
         }, { status: 502 });
     } catch (error) {
         console.error("[TOPUP] Unexpected error:", error);

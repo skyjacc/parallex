@@ -14,21 +14,25 @@ const statusConfig: Record<string, { label: string; icon: any; color: string; bg
 
 export default function AdminOrdersPage() {
     const [orders, setOrders] = useState<Order[]>([]);
+    const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [filter, setFilter] = useState<"all" | "REVIEW" | "COMPLETED" | "REJECTED">("all");
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
     const [processing, setProcessing] = useState<string | null>(null);
+    const [page, setPage] = useState(0);
+    const PAGE_SIZE = 50;
 
-    const loadOrders = () => { setLoading(true); fetch("/api/admin/orders").then((r) => r.json()).then((d) => { if (d.ok) setOrders(d.orders); }).finally(() => setLoading(false)); };
+    const loadOrders = (p = page) => { setLoading(true); fetch(`/api/admin/orders?limit=${PAGE_SIZE}&offset=${p * PAGE_SIZE}`).then((r) => r.json()).then((d) => { if (d.ok) { setOrders(d.orders); setTotal(d.total); } }).finally(() => setLoading(false)); };
     useEffect(() => { loadOrders(); }, []);
+    useEffect(() => { loadOrders(page); }, [page]);
 
     const handleReview = async (orderId: string, action: "approve" | "reject") => {
         setProcessing(orderId);
         try {
             const res = await fetch("/api/admin/orders/review", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ orderId, action }) });
             const data = await res.json();
-            if (data.ok) { toast.success(action === "approve" ? "Order approved — key delivered" : `Order rejected — ${data.refunded} PRX refunded`); loadOrders(); setSelectedOrder(null); }
+            if (data.ok) { toast.success(action === "approve" ? "Order approved — key delivered" : `Order rejected — ${data.refunded} PRX refunded`); loadOrders(page); setSelectedOrder(null); }
             else toast.error(data.error);
         } catch { toast.error("Network error"); }
         setProcessing(null);
@@ -44,7 +48,7 @@ export default function AdminOrdersPage() {
     return (
         <div className="flex flex-col gap-6">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="rounded-lg border bg-card p-4"><p className="text-xs text-muted-foreground mb-1">Total Orders</p><p className="text-2xl font-mono font-semibold">{orders.length}</p></div>
+                <div className="rounded-lg border bg-card p-4"><p className="text-xs text-muted-foreground mb-1">Total Orders</p><p className="text-2xl font-mono font-semibold">{total}</p></div>
                 <div className="rounded-lg border bg-card p-4"><p className="text-xs text-muted-foreground mb-1">Total Revenue</p><p className="text-2xl font-mono font-semibold">{totalRevenue.toLocaleString()} PRX</p></div>
                 <div className={`rounded-lg border p-4 ${reviewCount > 0 ? "border-amber-500/20 bg-amber-500/5" : "bg-card"}`}>
                     <p className="text-xs text-muted-foreground mb-1">Pending Review</p>
@@ -68,6 +72,7 @@ export default function AdminOrdersPage() {
             </div>
 
             {loading ? <div className="flex items-center justify-center py-20"><Loader2 size={24} className="animate-spin text-muted-foreground" /></div> : (
+                <>
                 <div className="border rounded-lg overflow-hidden">
                     <table className="w-full">
                         <thead><tr className="border-b bg-muted/30"><th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Order</th><th className="text-left text-xs font-medium text-muted-foreground px-4 py-3 hidden sm:table-cell">Product</th><th className="text-left text-xs font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">Amount</th><th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Status</th><th className="text-right text-xs font-medium text-muted-foreground px-4 py-3">Actions</th></tr></thead>
@@ -103,6 +108,16 @@ export default function AdminOrdersPage() {
                     </table>
                     {filtered.length === 0 && <div className="text-center py-12"><ShoppingBag size={32} className="mx-auto text-muted-foreground/40 mb-3" /><p className="text-sm text-muted-foreground">No orders found</p></div>}
                 </div>
+                {total > PAGE_SIZE && (
+                    <div className="flex items-center justify-between mt-3">
+                        <span className="text-xs text-muted-foreground">Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, total)} of {total}</span>
+                        <div className="flex gap-2">
+                            <button disabled={page === 0} onClick={() => setPage((p) => p - 1)} className="inline-flex items-center justify-center rounded-md text-sm font-medium border bg-background shadow-xs hover:bg-accent h-8 px-3 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-colors">Prev</button>
+                            <button disabled={(page + 1) * PAGE_SIZE >= total} onClick={() => setPage((p) => p + 1)} className="inline-flex items-center justify-center rounded-md text-sm font-medium border bg-background shadow-xs hover:bg-accent h-8 px-3 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-colors">Next</button>
+                        </div>
+                    </div>
+                )}
+                </>
             )}
 
             {selectedOrder && (

@@ -12,7 +12,7 @@ export async function GET() {
     try {
         const products = await db.product.findMany({
             include: {
-                stocks: { select: { id: true, content: true, isSold: true } },
+                stocks: { select: { id: true, isSold: true } },
                 _count: { select: { orders: true } },
             },
             orderBy: { createdAt: "desc" },
@@ -25,7 +25,8 @@ export async function GET() {
                 name: p.name,
                 description: p.description,
                 pricePrx: p.pricePrx,
-                stock: p.stocks,
+                stockAvailable: p.stocks.filter((s) => !s.isSold).length,
+                stockTotal: p.stocks.length,
                 totalSold: p._count.orders,
                 createdAt: p.createdAt.toISOString(),
             })),

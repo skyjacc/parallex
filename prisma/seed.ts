@@ -288,7 +288,250 @@ async function main() {
         create: { code: "WELCOME10", discountPercent: 10, maxUses: 100 },
     });
 
+    // ── Fake Clients with Purchases ─────────────────────────
+    await seedFakeClients();
+
     console.log("\nSeed complete!");
+}
+
+// ── Helpers ──────────────────────────────────────────────
+
+function rng(min: number, max: number) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+function pick<T>(a: T[]): T { return a[Math.floor(Math.random() * a.length)]; }
+function rngDate(daysBack: number) { return new Date(Date.now() - Math.random() * daysBack * 86400000); }
+
+// Real-looking first + last names
+const FIRSTS = [
+    "james","john","robert","michael","david","william","richard","joseph","thomas","charles",
+    "christopher","daniel","matthew","anthony","mark","donald","steven","paul","andrew","joshua",
+    "kenneth","kevin","brian","george","timothy","ronald","edward","jason","jeffrey","ryan",
+    "jacob","gary","nicholas","eric","jonathan","stephen","larry","justin","scott","brandon",
+    "benjamin","samuel","raymond","gregory","frank","alexander","patrick","jack","dennis","jerry",
+    "tyler","aaron","jose","adam","nathan","henry","peter","zachary","douglas","harold",
+    "mary","patricia","jennifer","linda","barbara","elizabeth","susan","jessica","sarah","karen",
+    "lisa","nancy","betty","margaret","sandra","ashley","dorothy","kimberly","emily","donna",
+    "michelle","carol","amanda","melissa","deborah","stephanie","rebecca","sharon","laura","cynthia",
+    "kathleen","amy","angela","shirley","anna","brenda","pamela","emma","nicole","helen",
+    "samantha","katherine","christine","debra","rachel","carolyn","janet","catherine","maria","heather",
+    "diane","ruth","julie","olivia","joyce","virginia","victoria","kelly","lauren","christina",
+];
+const LASTS = [
+    "smith","johnson","williams","brown","jones","garcia","miller","davis","rodriguez","martinez",
+    "hernandez","lopez","gonzalez","wilson","anderson","thomas","taylor","moore","jackson","martin",
+    "lee","perez","thompson","white","harris","sanchez","clark","ramirez","lewis","robinson",
+    "walker","young","allen","king","wright","scott","torres","nguyen","hill","flores",
+    "green","adams","nelson","baker","hall","rivera","campbell","mitchell","carter","roberts",
+    "gomez","phillips","evans","turner","diaz","parker","cruz","edwards","collins","reyes",
+    "stewart","morris","morales","murphy","cook","rogers","gutierrez","ortiz","morgan","cooper",
+    "peterson","bailey","reed","kelly","howard","ramos","kim","cox","ward","richardson",
+    "watson","brooks","chavez","wood","james","bennett","gray","mendoza","ruiz","hughes",
+    "price","alvarez","castillo","sanders","patel","myers","long","ross","foster","jimenez",
+];
+
+const REVIEW_COMMENTS = [
+    "Works great, no issues so far",
+    "Instant delivery, very happy",
+    "Been using for a week, still undetected",
+    "Good value for the price",
+    "Setup was easy, support helped quickly",
+    "Best cheat I've used, smooth aimbot",
+    "ESP is clean, no FPS drops",
+    "Had a small issue but support fixed it fast",
+    "Recommended to my friends already",
+    "Solid product, will buy again",
+    "No recoil feature is insane",
+    "Works perfectly on Windows 11",
+    "Fast updates after game patches",
+    "Clean UI, easy to configure",
+    "Spoofer works flawlessly",
+    "Got my key instantly, 10/10",
+    "Using it daily, no bans",
+    "Great for ranked games",
+    "Legit settings are perfect",
+    "Worth every PRX",
+    "Smooth injection, no crashes",
+    "Customer support is top tier",
+    "Better than what I used before",
+    "Aimbot feels natural on legit settings",
+    "Radar hack is a game changer",
+    "", "", "", "", "",
+];
+
+async function seedFakeClients() {
+    const MARKER = "seeded_client";
+
+    // Check if already seeded
+    const existing = await prisma.user.count({
+        where: { referredBy: MARKER },
+    });
+    if (existing >= 100) {
+        console.log(`${existing} fake clients already exist, skipping`);
+        return;
+    }
+
+    // Clean previous partial run
+    if (existing > 0) {
+        const ids = (await prisma.user.findMany({ where: { referredBy: MARKER }, select: { id: true } })).map((u: any) => u.id);
+        await prisma.review.deleteMany({ where: { userId: { in: ids } } });
+        await prisma.balanceLog.deleteMany({ where: { userId: { in: ids } } });
+        // Unmark sold stock before deleting orders
+        const orders = await prisma.order.findMany({ where: { userId: { in: ids } }, select: { stockId: true } });
+        if (orders.length) await prisma.stock.updateMany({ where: { id: { in: orders.map((o: any) => o.stockId) } }, data: { isSold: false } });
+        await prisma.order.deleteMany({ where: { userId: { in: ids } } });
+        await prisma.transaction.deleteMany({ where: { userId: { in: ids } } });
+        await prisma.user.deleteMany({ where: { id: { in: ids } } });
+        console.log(`Cleaned ${existing} old fake clients`);
+    }
+
+    const COUNT = rng(150, 250);
+    console.log(`\nGenerating ${COUNT} clients with real emails (65% crypto / 35% card)...`);
+
+    const pw = await hash("client123", 4);
+
+    const products: { id: string; name: string; pricePrx: number }[] = await prisma.product.findMany({
+        select: { id: true, name: true, pricePrx: true },
+    });
+    if (!products.length) { console.log("No products, skipping"); return; }
+
+    // Collect existing to avoid collisions
+    const takenNames = new Set<string>();
+    const takenEmails = new Set<string>();
+    const all = await prisma.user.findMany({ select: { name: true, email: true } });
+    for (const u of all) { takenNames.add(u.name.toLowerCase()); takenEmails.add(u.email.toLowerCase()); }
+
+    const DOMAINS = ["gmail.com", "gmail.com", "gmail.com", "gmail.com", "outlook.com", "outlook.com", "yahoo.com", "mail.com"];
+    // weighted: gmail ~50%, outlook ~25%, yahoo ~12.5%, mail.com ~12.5%
+
+    let statOrders = 0, statReviews = 0, statTx = 0;
+
+    for (let i = 0; i < COUNT; i++) {
+        // Build realistic username + email
+        const first = pick(FIRSTS);
+        const last = pick(LASTS);
+        const sep = pick([".", "_", ""]);
+        const numPart = Math.random() > 0.4 ? String(rng(1, 99)) : "";
+
+        let username = `${first}${sep}${last}${numPart}`;
+        if (takenNames.has(username.toLowerCase())) username = `${first}${sep}${last}${rng(100, 9999)}`;
+        if (takenNames.has(username.toLowerCase())) continue;
+        takenNames.add(username.toLowerCase());
+
+        const emailLocal = `${first}${pick([".", "_", ""])}${last}${numPart || rng(1, 999)}`;
+        const domain = pick(DOMAINS);
+        const email = `${emailLocal}@${domain}`.toLowerCase();
+        if (takenEmails.has(email)) continue;
+        takenEmails.add(email);
+
+        const registeredAt = rngDate(180);
+
+        const user = await prisma.user.create({
+            data: {
+                name: username,
+                email,
+                password: pw,
+                prxBalance: 0,
+                role: "USER",
+                referredBy: MARKER,
+                createdAt: registeredAt,
+                updatedAt: registeredAt,
+            },
+        });
+
+        // ── Transactions: 65% crypto, 35% card ──────────────
+        const txCount = rng(1, 6);
+        let deposited = 0;
+
+        for (let t = 0; t < txCount; t++) {
+            const isCrypto = Math.random() < 0.65;
+            const amount = pick([500, 1000, 1500, 2000, 2500, 3000, 5000, 7500, 10000]);
+            const txDate = new Date(registeredAt.getTime() + Math.random() * (Date.now() - registeredAt.getTime()));
+            const status = Math.random() > 0.08 ? "COMPLETED" : (Math.random() > 0.5 ? "PENDING" : "FAILED");
+
+            await prisma.transaction.create({
+                data: {
+                    userId: user.id,
+                    amountPrx: amount,
+                    moneymotionId: `${isCrypto ? "crypto" : "card"}_${user.id.slice(-6)}_${t}_${Date.now()}_${rng(1000, 9999)}`,
+                    status: status as any,
+                    type: "DEPOSIT",
+                    // Crypto: no card info. Card: has last4 + brand
+                    cardLast4: isCrypto ? null : String(rng(1000, 9999)),
+                    cardBrand: isCrypto ? null : pick(["Visa", "Mastercard"]),
+                    createdAt: txDate,
+                },
+            });
+            statTx++;
+            if (status === "COMPLETED") deposited += amount;
+        }
+
+        // Welcome bonus
+        deposited += 100;
+
+        // ── Orders ───────────────────────────────────────────
+        const orderCount = rng(0, 6);
+        const reviewedProducts = new Set<string>();
+        let spent = 0;
+
+        for (let o = 0; o < orderCount; o++) {
+            const product = pick(products);
+            if (spent + product.pricePrx > deposited) break;
+
+            const stock = await prisma.stock.findFirst({ where: { productId: product.id, isSold: false } });
+            if (!stock) continue;
+
+            const orderDate = new Date(registeredAt.getTime() + Math.random() * (Date.now() - registeredAt.getTime()));
+            const orderStatus = Math.random() > 0.03 ? "COMPLETED" : "REVIEW";
+
+            await prisma.stock.update({ where: { id: stock.id }, data: { isSold: true } });
+            await prisma.order.create({
+                data: {
+                    userId: user.id,
+                    productId: product.id,
+                    stockId: stock.id,
+                    costPrx: product.pricePrx,
+                    status: orderStatus as any,
+                    createdAt: orderDate,
+                },
+            });
+            spent += product.pricePrx;
+            statOrders++;
+
+            // Review (one per product, ~40% chance)
+            if (orderStatus === "COMPLETED" && !reviewedProducts.has(product.id) && Math.random() < 0.4) {
+                reviewedProducts.add(product.id);
+                try {
+                    await prisma.review.create({
+                        data: {
+                            userId: user.id,
+                            productId: product.id,
+                            rating: pick([3, 4, 4, 4, 5, 5, 5, 5, 5]),
+                            comment: pick(REVIEW_COMMENTS),
+                            createdAt: new Date(orderDate.getTime() + rng(1, 48) * 3600000),
+                        },
+                    });
+                    statReviews++;
+                } catch { /* unique constraint */ }
+            }
+        }
+
+        // ── Balance Logs ─────────────────────────────────────
+        if (deposited > 0) {
+            await prisma.balanceLog.create({
+                data: { userId: user.id, type: "deposit", amount: deposited, description: "Deposits", balanceBefore: 0, balanceAfter: deposited, createdAt: registeredAt },
+            });
+        }
+        if (spent > 0) {
+            await prisma.balanceLog.create({
+                data: { userId: user.id, type: "purchase", amount: -spent, description: "Purchases", balanceBefore: deposited, balanceAfter: deposited - spent, createdAt: new Date() },
+            });
+        }
+
+        await prisma.user.update({ where: { id: user.id }, data: { prxBalance: Math.max(0, deposited - spent) } });
+
+        if ((i + 1) % 50 === 0) console.log(`  ... ${i + 1}/${COUNT}`);
+    }
+
+    console.log(`\nClients seeded: ~${COUNT} users, ${statOrders} orders, ${statReviews} reviews, ${statTx} transactions`);
 }
 
 main()

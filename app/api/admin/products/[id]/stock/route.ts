@@ -3,6 +3,29 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 
+export async function GET(
+    _req: Request,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    const session = await getServerSession(authOptions);
+    if ((session?.user as any)?.role !== "ADMIN") {
+        return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+    }
+
+    try {
+        const { id: productId } = await params;
+        const stocks = await db.stock.findMany({
+            where: { productId },
+            select: { id: true, content: true, isSold: true },
+            orderBy: { createdAt: "desc" },
+        });
+        return NextResponse.json({ ok: true, stocks });
+    } catch (error) {
+        console.error("GET /api/admin/products/[id]/stock error:", error);
+        return NextResponse.json({ ok: false, error: "Failed to fetch stock" }, { status: 500 });
+    }
+}
+
 export async function POST(
     req: Request,
     { params }: { params: Promise<{ id: string }> }

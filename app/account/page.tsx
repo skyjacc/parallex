@@ -23,13 +23,19 @@ export default function AccountPage() {
     const [balLogs, setBalLogs] = useState<BalLog[]>([]);
     const [refData, setRefData] = useState<RefData | null>(null);
     const [loading, setLoading] = useState(false);
+    const [orderCount, setOrderCount] = useState<number | null>(null);
     const [curPw, setCurPw] = useState(""); const [newPw, setNewPw] = useState(""); const [confirmPw, setConfirmPw] = useState(""); const [pwSaving, setPwSaving] = useState(false);
     const [copiedId, setCopiedId] = useState<string | null>(null);
     const [copiedRef, setCopiedRef] = useState(false);
 
     useEffect(() => {
+        // Always fetch order count for the account tab
+        fetch("/api/orders").then(r => r.json()).then(d => { if (d.ok) { setOrders(d.orders); setOrderCount(d.orders.length); } });
+    }, []);
+
+    useEffect(() => {
         if (tab === "invoices" && transactions.length === 0) { setLoading(true); fetch("/api/transactions").then(r => r.json()).then(d => { if (d.ok) setTransactions(d.transactions); }).finally(() => setLoading(false)); }
-        if (tab === "orders" && orders.length === 0) { setLoading(true); fetch("/api/orders").then(r => r.json()).then(d => { if (d.ok) setOrders(d.orders); }).finally(() => setLoading(false)); }
+        if (tab === "orders" && orders.length === 0) { setLoading(true); fetch("/api/orders").then(r => r.json()).then(d => { if (d.ok) { setOrders(d.orders); setOrderCount(d.orders.length); } }).finally(() => setLoading(false)); }
         if (tab === "balances" && balLogs.length === 0) { setLoading(true); fetch("/api/balance-logs").then(r => r.json()).then(d => { if (d.ok) setBalLogs(d.logs); }).finally(() => setLoading(false)); }
         if (tab === "referrers" && !refData) { setLoading(true); fetch("/api/referral").then(r => r.json()).then(d => { if (d.ok) setRefData(d); }).finally(() => setLoading(false)); }
     }, [tab]);
@@ -83,7 +89,7 @@ export default function AccountPage() {
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             <div className="rounded-xl border bg-card p-5"><div className="flex items-center gap-2 mb-2"><Zap size={16} className="text-primary" /><span className="text-xs text-muted-foreground">Balance</span></div><p className="text-2xl font-mono font-bold">{usr?.prxBalance || 0} <span className="text-sm font-normal text-muted-foreground">PRX</span></p></div>
-                            <div className="rounded-xl border bg-card p-5"><div className="flex items-center gap-2 mb-2"><ShoppingBag size={16} className="text-primary" /><span className="text-xs text-muted-foreground">Orders</span></div><p className="text-2xl font-mono font-bold">{orders.length}</p></div>
+                            <div className="rounded-xl border bg-card p-5"><div className="flex items-center gap-2 mb-2"><ShoppingBag size={16} className="text-primary" /><span className="text-xs text-muted-foreground">Orders</span></div><p className="text-2xl font-mono font-bold">{orderCount !== null ? orderCount : "—"}</p></div>
                             <div className="rounded-xl border bg-card p-5"><div className="flex items-center gap-2 mb-2"><Calendar size={16} className="text-primary" /><span className="text-xs text-muted-foreground">Joined</span></div><p className="text-sm font-medium">Member since registration</p></div>
                         </div>
                     </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Zap, Lock, LogIn, ArrowRight, Percent, Gift, Shield, Loader2, CreditCard, AlertTriangle, CheckCircle } from "lucide-react";
+import { Zap, Lock, LogIn, ArrowRight, Percent, Gift, Shield, Loader2, CreditCard, AlertTriangle, CheckCircle, Copy, Check, Clock } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useMemo, useEffect, Suspense } from "react";
@@ -74,6 +74,16 @@ function TopUpContent() {
         cardBrand?: string | null;
     } | null>(null);
     const [pollElapsed, setPollElapsed] = useState(0);
+    const [cryptoPayment, setCryptoPayment] = useState<{
+        paymentId: string;
+        payAddress: string;
+        payAmount: number;
+        payCurrency: string;
+        payinExtraId: string | null;
+        expiresAt: string | null;
+        network: string;
+    } | null>(null);
+    const [copiedAddr, setCopiedAddr] = useState(false);
 
     const balance = (session?.user as any)?.prxBalance ?? 0;
     const prxAmount = Number(inputPrx) || 0;
@@ -167,10 +177,16 @@ function TopUpContent() {
         }
 
         setProcessing(true);
-        // Open the tab synchronously during the click event to avoid popup blockers
-        const paymentWindow = window.open("", "_blank");
-        if (paymentWindow) {
-            paymentWindow.document.write("Loading payment gateway...");
+
+        const isCrypto = method?.code === "crypto";
+
+        // Only open popup for non-crypto payments
+        let paymentWindow: Window | null = null;
+        if (!isCrypto) {
+            paymentWindow = window.open("", "_blank");
+            if (paymentWindow) {
+                paymentWindow.document.write("Loading payment gateway...");
+            }
         }
 
         try {
@@ -184,30 +200,31 @@ function TopUpContent() {
             if (!data.ok) {
                 if (paymentWindow) paymentWindow.close();
                 toast.error(data.error || "Failed to create payment");
-                // If admin, show extra debug info
                 if (data._admin) {
-                    toast.info("Admin info", {
-                        description: data._admin,
-                        duration: 8000,
-                    });
+                    toast.info("Admin info", { description: data._admin, duration: 8000 });
                 }
                 return;
             }
 
+            // ── Crypto payment — show payment details ────────
+            if (data.cryptoPayment && data.transactionId) {
+                setCryptoPayment(data.cryptoPayment);
+                setPollingTxId(data.transactionId);
+                setPollStatus({ status: "PENDING" });
+                return;
+            }
+
+            // ── Card payment — redirect to gateway ───────────
             if (data.redirectUrl && data.transactionId) {
                 toast.loading("Opening payment window...");
-                // Set the URL of the tab we just opened
                 if (paymentWindow) {
                     paymentWindow.location.href = data.redirectUrl;
                 } else {
-                    // Fallback if popup was fully blocked
                     window.location.href = data.redirectUrl;
                 }
-                // Start polling
                 setPollingTxId(data.transactionId);
                 setPollStatus({ status: "PENDING" });
             } else if (data.redirectUrl) {
-                // Fallback for older transactions
                 if (paymentWindow) {
                     paymentWindow.location.href = data.redirectUrl;
                 } else {
@@ -443,7 +460,7 @@ function TopUpContent() {
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
                     <div className="bg-card w-full max-w-sm rounded-xl border shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                         <div className="p-6 text-center">
-                            {pollStatus.status === "PENDING" && (
+                            {pollStatus.status === "PENDING" && !cryptoPayment && (
                                 <>
                                     <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
                                         <Loader2 size={32} className="text-primary animate-spin" />
@@ -469,6 +486,63 @@ function TopUpContent() {
                                 </>
                             )}
 
+                            {pollStatus.status === "PENDING" && cryptoPayment && (
+                                <>
+                                    <div className="mx-auto w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center mb-4">
+                                        <Clock size={32} className="text-amber-500" />
+                                    </div>
+                                    <h2 className="text-xl font-semibold mb-2">Send Crypto Payment</h2>
+                                    <p className="text-sm text-muted-foreground mb-4">
+                                        Send exactly the amount below to the address provided.
+                                    </p>
+
+                                    <div className="bg-muted/20 rounded-lg border p-4 mb-4 text-left flex flex-col gap-3">
+                                        <div>
+                                            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Amount</p>
+                                            <p className="text-lg font-mono font-bold">{cryptoPayment.payAmount} {cryptoPayment.payCurrency.toUpperCase()}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Network</p>
+                                            <p className="text-sm font-mono">{cryptoPayment.network.toUpperCase()}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Send to Address</p>
+                                            <div className="flex items-center gap-2">
+                                                <code className="text-xs font-mono bg-muted/30 px-2 py-1.5 rounded break-all flex-1">{cryptoPayment.payAddress}</code>
+                                                <button
+                                                    onClick={() => { navigator.clipboard.writeText(cryptoPayment.payAddress); setCopiedAddr(true); toast.success("Address copied"); setTimeout(() => setCopiedAddr(false), 2000); }}
+                                                    className="inline-flex items-center justify-center rounded-md border hover:bg-accent size-8 shrink-0 cursor-pointer"
+                                                >
+                                                    {copiedAddr ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                                                </button>
+                                            </div>
+                                        </div>
+                                        {cryptoPayment.payinExtraId && (
+                                            <div>
+                                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Memo / Extra ID</p>
+                                                <code className="text-xs font-mono bg-red-500/10 text-red-400 px-2 py-1.5 rounded block">{cryptoPayment.payinExtraId}</code>
+                                                <p className="text-[9px] text-red-400 mt-1">Required — payment without memo cannot be detected</p>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <p className="text-xs text-muted-foreground/60 mb-1 font-mono tabular-nums">
+                                        {Math.floor(pollElapsed / 60).toString().padStart(2, "0")}:{(pollElapsed % 60).toString().padStart(2, "0")} elapsed
+                                    </p>
+                                    <div className="w-full bg-muted/30 rounded-full h-1 mb-4 overflow-hidden">
+                                        <div className="h-full bg-amber-500/40 rounded-full animate-pulse" style={{ width: `${Math.min((pollElapsed / (20 * 60)) * 100, 100)}%` }} />
+                                    </div>
+                                    <p className="text-[10px] text-muted-foreground mb-3">Payment will be detected automatically. Do not close this page.</p>
+
+                                    <button
+                                        onClick={() => { setPollStatus(null); setPollingTxId(null); setPollElapsed(0); setCryptoPayment(null); }}
+                                        className="text-sm text-muted-foreground hover:text-foreground underline transition-colors cursor-pointer"
+                                    >
+                                        Cancel
+                                    </button>
+                                </>
+                            )}
+
                             {pollStatus.status === "COMPLETED" && (
                                 <>
                                     <div className="mx-auto w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mb-4">
@@ -485,7 +559,7 @@ function TopUpContent() {
                                     )}
                                     <p className="text-xs text-muted-foreground/60 mb-5">Balance updated automatically.</p>
                                     <button
-                                        onClick={() => { setPollStatus(null); setPollElapsed(0); router.push("/dashboard"); }}
+                                        onClick={() => { setPollStatus(null); setPollElapsed(0); setCryptoPayment(null); router.push("/dashboard"); }}
                                         className="w-full inline-flex items-center justify-center rounded-lg text-sm font-medium bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 h-10 px-4 transition-all cursor-pointer gap-2"
                                     >
                                         <Zap size={14} />
@@ -508,7 +582,7 @@ function TopUpContent() {
                                             : "The payment was declined or cancelled."}
                                     </p>
                                     <button
-                                        onClick={() => { setPollStatus(null); setPollingTxId(null); setPollElapsed(0); }}
+                                        onClick={() => { setPollStatus(null); setPollingTxId(null); setPollElapsed(0); setCryptoPayment(null); }}
                                         className="w-full inline-flex items-center justify-center rounded-lg text-sm font-medium bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 h-10 px-4 transition-all cursor-pointer"
                                     >
                                         Try Again

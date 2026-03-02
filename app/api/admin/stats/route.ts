@@ -55,11 +55,12 @@ export async function GET() {
         const dailyMap: Record<string, { orders: number; revenue: number }> = {};
         for (let i = 6; i >= 0; i--) {
             const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-            const key = dayNames[d.getDay()];
+            const key = `${d.getMonth() + 1}/${d.getDate()} ${dayNames[d.getDay()]}`;
             dailyMap[key] = { orders: 0, revenue: 0 };
         }
         for (const o of ordersLast7) {
-            const key = dayNames[o.createdAt.getDay()];
+            const d = o.createdAt;
+            const key = `${d.getMonth() + 1}/${d.getDate()} ${dayNames[d.getDay()]}`;
             if (dailyMap[key]) {
                 dailyMap[key].orders++;
                 dailyMap[key].revenue += o.costPrx;

@@ -108,12 +108,16 @@ function MarqueeRow({ items, reverse = false }: { items: typeof row1; reverse?: 
 export default function Home() {
     const [products, setProducts] = useState<ProductData[]>([]);
     const [loaded, setLoaded] = useState(false);
+    const [stats, setStats] = useState<{ orders: number; customers: number; reviews: number } | null>(null);
 
     useEffect(() => {
         fetch("/api/products")
             .then((r) => r.json())
             .then((data) => { if (data.ok) setProducts(data.products); })
             .finally(() => setLoaded(true));
+        fetch("/api/stats")
+            .then((r) => r.json())
+            .then((data) => { if (data.ok) setStats(data); });
     }, []);
 
     const featured = products.slice(0, 4);
@@ -392,9 +396,9 @@ export default function Home() {
                 {/* Stats */}
                 <div className="grid grid-cols-3 gap-4 mt-8">
                     {[
-                        { label: "Orders", value: "10,000+" },
-                        { label: "Customers", value: "5,000+" },
-                        { label: "Reviews", value: "2,500+" },
+                        { label: "Orders", value: stats ? stats.orders.toLocaleString() : "—" },
+                        { label: "Customers", value: stats ? stats.customers.toLocaleString() : "—" },
+                        { label: "Reviews", value: stats ? stats.reviews.toLocaleString() : "—" },
                     ].map((stat) => (
                         <div key={stat.label} className="text-center py-4 rounded-xl border bg-card">
                             <div className="text-lg font-bold">{stat.value}</div>

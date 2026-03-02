@@ -81,8 +81,19 @@ export async function GET(
 
         events.sort((a, b) => a.time.getTime() - b.time.getTime());
 
-        let runningBalance = 0;
-        const timeline: TimelineEntry[] = [];
+        // Start with welcome bonus (100 PRX given at registration)
+        const WELCOME_BONUS = 100;
+        let runningBalance = WELCOME_BONUS;
+        const timeline: TimelineEntry[] = [{
+            type: "deposit",
+            description: "Welcome Bonus",
+            amount: WELCOME_BONUS,
+            balanceBefore: 0,
+            balanceAfter: WELCOME_BONUS,
+            card: null,
+            status: "COMPLETED",
+            createdAt: user.createdAt.toISOString(),
+        }];
         for (const ev of events) {
             const entry = ev.build(runningBalance);
             timeline.push(entry);
