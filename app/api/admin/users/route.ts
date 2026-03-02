@@ -64,7 +64,7 @@ export async function PATCH(req: Request) {
             return NextResponse.json({ ok: false, error: "User ID is required" }, { status: 400 });
         }
 
-        if (id === (session.user as any).id && role && role !== "ADMIN") {
+        if (id === (session!.user as any).id && role && role !== "ADMIN") {
             return NextResponse.json({ ok: false, error: "Cannot demote yourself" }, { status: 400 });
         }
 
