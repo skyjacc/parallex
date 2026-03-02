@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(
     req: Request,
@@ -16,8 +17,15 @@ export async function POST(
     if (!content?.trim()) {
         return NextResponse.json({ error: "Message cannot be empty" }, { status: 400 });
     }
+    if (content.trim().length > 2000) {
+        return NextResponse.json({ error: "Message too long (max 2000)" }, { status: 400 });
+    }
 
     const userId = (session.user as any).id;
+
+    if (!rateLimit(`msg:${userId}`, 60 * 1000, 20)) {
+        return NextResponse.json({ error: "Too many messages. Slow down." }, { status: 429 });
+    }
     const isAdmin = (session.user as any).role === "ADMIN";
 
     const ticket = await db.ticket.findUnique({ where: { id: ticketId } });

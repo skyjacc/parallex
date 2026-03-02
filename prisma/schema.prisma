@@ -1,6 +1,5 @@
 // ============================================================
 // PRX Store — Prisma Schema
-// Магазин цифровых товаров с внутренней валютой PRX
 // ============================================================
 
 generator client {
@@ -41,50 +40,94 @@ enum TicketStatus {
   CLOSED
 }
 
+enum DetectionStatus {
+  UNDETECTED
+  TESTING
+  UPDATING
+}
+
+enum CheatType {
+  INTERNAL
+  EXTERNAL
+  SPOOFER
+  SCRIPT
+  ACCOUNT
+  EXECUTOR
+}
+
 // ── User ─────────────────────────────────────────────────────
-// Пользователь платформы. prxBalance — баланс внутренней валюты.
 
 model User {
-  id         String   @id @default(cuid())
-  name       String   @unique
-  email      String   @unique
-  password   String
-  image      String?
-  prxBalance Int      @default(0)
-  role       Role     @default(USER)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id           String   @id @default(cuid())
+  name         String   @unique
+  email        String   @unique
+  password     String
+  image        String?
+  prxBalance   Int      @default(0)
+  role         Role     @default(USER)
+  flagged      Boolean  @default(false)
+  referralCode String?  @unique
+  referredBy   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   orders       Order[]
   transactions Transaction[]
   tickets      Ticket[]
   messages     Message[]
-  flagged      Boolean  @default(false)
+  reviews      Review[]
+  referrals    Referral[]  @relation("Referrer")
+  referred     Referral?   @relation("Referred")
+  couponUses   CouponUse[]
 
   @@index([role])
+  @@index([referralCode])
+}
+
+// ── Category ─────────────────────────────────────────────────
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String   @unique
+  icon      String   @default("")
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  products Product[]
+
+  @@index([slug])
 }
 
 // ── Product ──────────────────────────────────────────────────
-// Витрина товара. Реальные ключи хранятся в Stock.
 
 model Product {
-  id          String   @id @default(cuid())
-  name        String
-  description String
-  imageUrl    String?
-  pricePrx    Int
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id              String          @id @default(cuid())
+  name            String
+  description     String
+  imageUrl        String?
+  pricePrx        Int
+  categoryId      String?
+  category        Category?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  cheatType       CheatType?
+  detectionStatus DetectionStatus @default(UNDETECTED)
+  osSupport       String          @default("Windows 10, 11")
+  cpuSupport      String          @default("Intel, AMD")
+  tags            Json            @default("[]")
+  featured        Boolean         @default(false)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 
-  stocks Stock[]
-  orders Order[]
+  stocks  Stock[]
+  orders  Order[]
+  reviews Review[]
 
   @@index([pricePrx])
+  @@index([categoryId])
+  @@index([detectionStatus])
 }
 
 // ── Stock ────────────────────────────────────────────────────
-// Конкретный экземпляр товара (ключ, аккаунт и т.д.)
-// content — содержимое, выдаётся после покупки.
 
 model Stock {
   id        String   @id @default(cuid())
@@ -96,22 +139,20 @@ model Stock {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Композитный индекс для быстрого поиска свободных ключей:
-  // SELECT * FROM Stock WHERE productId = ? AND isSold = false LIMIT 1
   @@index([productId, isSold])
 }
 
 // ── Order ────────────────────────────────────────────────────
-// Запись о покупке. stockId уникален — один ключ продаётся один раз.
 
 model Order {
-  id        String      @id @default(cuid())
-  userId    String
-  productId String
-  stockId   String      @unique
-  costPrx   Int
-  status    OrderStatus @default(COMPLETED)
-  createdAt DateTime    @default(now())
+  id         String      @id @default(cuid())
+  userId     String
+  productId  String
+  stockId    String      @unique
+  costPrx    Int
+  status     OrderStatus @default(COMPLETED)
+  couponCode String?
+  createdAt  DateTime    @default(now())
 
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
@@ -123,8 +164,6 @@ model Order {
 }
 
 // ── Transaction ──────────────────────────────────────────────
-// История пополнений баланса через MoneyMotion.
-// moneymotionId уникален — идемпотентность (защита от двойного начисления).
 
 model Transaction {
   id            String            @id @default(cuid())
@@ -143,11 +182,69 @@ model Transaction {
   @@index([status])
 }
 
-// ── PaymentMethod ────────────────────────────────────────────
-// Настраиваемые способы оплаты. Admin включает/выключает из панели.
+// ── Review ───────────────────────────────────────────────────
+
+model Review {
+  id        String   @id @default(cuid())
+  userId    String
+  productId String
+  rating    Int
+  comment   String   @default("")
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([productId])
+}
+
+// ── Referral ─────────────────────────────────────────────────
+
+model Referral {
+  id             String   @id @default(cuid())
+  referrerId     String
+  referredUserId String   @unique
+  bonusPrx       Int      @default(50)
+  createdAt      DateTime @default(now())
+
+  referrer User @relation("Referrer", fields: [referrerId], references: [id], onDelete: Cascade)
+  referred User @relation("Referred", fields: [referredUserId], references: [id], onDelete: Cascade)
+
+  @@index([referrerId])
+}
+
+// ── Coupon ───────────────────────────────────────────────────
+
+model Coupon {
+  id              String    @id @default(cuid())
+  code            String    @unique
+  discountPercent Int?
+  discountFixed   Int?
+  maxUses         Int       @default(0)
+  usedCount       Int       @default(0)
+  expiresAt       DateTime?
+  active          Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+
+  uses CouponUse[]
+
+  @@index([code])
+}
+
+model CouponUse {
+  id       String   @id @default(cuid())
+  couponId String
+  userId   String
+  usedAt   DateTime @default(now())
+
+  coupon Coupon @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([couponId, userId])
+}
 
 // ── Ticket ───────────────────────────────────────────────────
-// Тикет саппорта. Пользователь создаёт, admin отвечает.
 
 model Ticket {
   id        String       @id @default(cuid())
@@ -167,12 +264,12 @@ model Ticket {
 // ── Message ──────────────────────────────────────────────────
 
 model Message {
-  id        String   @id @default(cuid())
-  ticketId  String
-  senderId  String
+  id         String   @id @default(cuid())
+  ticketId   String
+  senderId   String
   senderRole Role
-  content   String
-  createdAt DateTime @default(now())
+  content    String
+  createdAt  DateTime @default(now())
 
   ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   sender User   @relation(fields: [senderId], references: [id], onDelete: Cascade)
@@ -181,12 +278,13 @@ model Message {
 }
 
 // ── PaymentMethod ────────────────────────────────────────────
+
 model PaymentMethod {
   id          String   @id @default(cuid())
-  code        String   @unique          // "stripe", "moneymotion", "paypal", etc.
-  name        String                    // "Card (Stripe)"
-  description String   @default("")     // "Visa, Mastercard, Amex"
-  icon        String   @default("")     // SVG icon identifier
+  code        String   @unique
+  name        String
+  description String   @default("")
+  icon        String   @default("")
   enabled     Boolean  @default(true)
   sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())
