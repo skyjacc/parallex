@@ -23,102 +23,51 @@ function getBonus(prx: number) {
 
 const quickAmounts = [100, 500, 1000, 2500, 5000, 10000];
 
-/* ── Crypto coin SVG icons ───────────────────────────────── */
-const cryptoIcons: Record<string, { icon: React.ReactNode; color: string; name: string }> = {
-    btc: {
-        name: "Bitcoin",
-        color: "#F7931A",
-        icon: <path d="M23.6 14.9c.3-2 -1.2-3.1-3.3-3.8l.7-2.7-1.6-.4-.7 2.6c-.4-.1-.8-.2-1.2-.3l.7-2.6-1.6-.4-.7 2.7c-.3-.1-.7-.2-1-.3l-2-.5-.4 1.7s1.2.3 1.2.3c.6.2.7.6.7.9l-.7 2.9c0 0 .1 0 .1 0l-.1 0-.9 3.8c-.1.2-.3.6-.8.4 0 0-1.2-.3-1.2-.3l-.8 1.8 1.9.5.9.2-.7 2.7 1.6.4.7-2.7c.4.1.8.2 1.2.3l-.7 2.7 1.6.4.7-2.7c2.8.5 4.9.3 5.8-2.2.7-2-.1-3.2-1.5-3.9 1.1-.3 1.9-1 2.1-2.5zm-3.8 5.3c-.5 2-4 .9-5.1.7l.9-3.7c1.1.3 4.7.8 4.2 3zm.5-5.3c-.5 1.8-3.4.9-4.3.7l.8-3.3c.9.2 4 .7 3.5 2.6z" />,
-    },
-    eth: {
-        name: "Ethereum",
-        color: "#627EEA",
-        icon: <><path d="M16 3l-7 11.5L16 18.5l7-4L16 3z" opacity="0.6" /><path d="M9 14.5L16 29l7-14.5-7 4-7-4z" /><path d="M16 18.5v-15.5l-7 11.5 7 4z" opacity="0.4" /></>,
-    },
-    usdt: {
-        name: "Tether",
-        color: "#26A17B",
-        icon: <path d="M16 4C9.4 4 4 9.4 4 16s5.4 12 12 12 12-5.4 12-12S22.6 4 16 4zm5.2 9.2h-2.8v1.6c2.6.1 4.5.6 4.5 1.2s-1.9 1.1-4.5 1.2v4.4h-3.8v-4.4c-2.6-.1-4.5-.6-4.5-1.2s1.9-1.1 4.5-1.2v-1.6h-2.8V10h10v3.2z" />,
-    },
-    ltc: {
-        name: "Litecoin",
-        color: "#BFBBBB",
-        icon: <path d="M16 4C9.4 4 4 9.4 4 16s5.4 12 12 12 12-5.4 12-12S22.6 4 16 4zm1.5 17.5h-6.3l.7-2.8-1.8.7.4-1.8 1.8-.7 1.8-7h3.2l-1.4 5.5 1.8-.7-.4 1.8-1.8.7-.7 2.8h4.7v1.5z" />,
-    },
-    xmr: {
-        name: "Monero",
-        color: "#FF6600",
-        icon: <path d="M16 4C9.4 4 4 9.4 4 16s5.4 12 12 12 12-5.4 12-12S22.6 4 16 4zm0 2.4l5.6 5.6v6h-2.4v-4.4L16 16.8l-3.2-3.2v4.4h-2.4v-6L16 6.4zm-8.8 14h2v-3.6l2 2 .8-.8-3.6-3.6v6h-1.2zm17.6 0h-1.2v-6l-3.6 3.6.8.8 2-2v3.6h2v-.4z" />,
-    },
-    trx: {
-        name: "TRON",
-        color: "#FF0013",
-        icon: <path d="M16 4C9.4 4 4 9.4 4 16s5.4 12 12 12 12-5.4 12-12S22.6 4 16 4zm-3 6h9.5l-9 13.5V10zm1.5 2v7.5l5.5-8.2h-5.5z" />,
-    },
-    sol: {
-        name: "Solana",
-        color: "#9945FF",
-        icon: <><path d="M8 19.5l2.5-2.5h13l-2.5 2.5H8z" /><path d="M8 12.5l2.5-2.5h13l-2.5 2.5H8z" opacity="0.7" /><path d="M23.5 15H10.5L8 17.5h13l2.5-2.5z" opacity="0.4" /></>,
-    },
-    doge: {
-        name: "Dogecoin",
-        color: "#C2A633",
-        icon: <path d="M16 4C9.4 4 4 9.4 4 16s5.4 12 12 12 12-5.4 12-12S22.6 4 16 4zm-.5 5h3c3.3 0 6 2.7 6 6s-2.7 6-6 6h-3V9zm2.5 2.5v7c2.2 0 3.5-1.6 3.5-3.5s-1.3-3.5-3.5-3.5zm-2.5.5h-2v2h2v-2zm0 4h-2v2h2v-2z" />,
-    },
-    bnb: {
-        name: "BNB",
-        color: "#F3BA2F",
-        icon: <><path d="M16 6l2.5 2.5-2.5 2.5-2.5-2.5L16 6z" /><path d="M22 12l2.5 2.5L22 17l-2.5-2.5L22 12z" /><path d="M10 12l2.5 2.5L10 17l-2.5-2.5L10 12z" /><path d="M16 18l2.5 2.5L16 23l-2.5-2.5L16 18z" /><path d="M16 12l2.5 2.5L16 17l-2.5-2.5L16 12z" /></>,
-    },
-    matic: {
-        name: "Polygon",
-        color: "#8247E5",
-        icon: <path d="M20.5 14.2l-3-1.7c-.3-.2-.7-.2-1 0l-2.4 1.4-1.6-.9 2.4-1.4c.3-.2.5-.5.5-.9s-.2-.7-.5-.9l-3-1.7c-.3-.2-.7-.2-1 0l-3 1.7c-.3.2-.5.5-.5.9v3.4c0 .4.2.7.5.9l3 1.7c.3.2.7.2 1 0l2.4-1.4 1.6.9-2.4 1.4c-.3.2-.5.5-.5.9s.2.7.5.9l3 1.7c.3.2.7.2 1 0l3-1.7c.3-.2.5-.5.5-.9v-3.4c0-.4-.2-.7-.5-.9z" />,
-    },
-    usdc: {
-        name: "USD Coin",
-        color: "#2775CA",
-        icon: <path d="M16 4C9.4 4 4 9.4 4 16s5.4 12 12 12 12-5.4 12-12S22.6 4 16 4zm4.8 14.4c0 2.4-2 3.6-4.8 3.6s-4.8-1.2-4.8-3.6h2.4c0 .8.8 1.2 2.4 1.2s2.4-.4 2.4-1.2c0-.6-.4-1-1.6-1.2l-1.6-.4c-2-.4-3.2-1.2-3.2-3 0-2 2-3.2 4.4-3.2 2.4 0 4.4 1.2 4.4 3.2h-2.4c0-.8-.8-1.2-2-1.2s-2 .4-2 1c0 .6.4.8 1.6 1.2l1.6.4c2 .4 3.2 1.4 3.2 3.2z" />,
-    },
-    ada: {
-        name: "Cardano",
-        color: "#0033AD",
-        icon: <><circle cx="16" cy="8" r="2" /><circle cx="16" cy="24" r="2" /><circle cx="9" cy="12" r="2" /><circle cx="23" cy="12" r="2" /><circle cx="9" cy="20" r="2" /><circle cx="23" cy="20" r="2" /><circle cx="16" cy="16" r="3" /></>,
-    },
-    dot: {
-        name: "Polkadot",
-        color: "#E6007A",
-        icon: <><circle cx="16" cy="8" r="3.5" /><circle cx="16" cy="24" r="3.5" /><ellipse cx="16" cy="16" rx="6" ry="3" fill="none" stroke="currentColor" strokeWidth="2" /></>,
-    },
-    avax: {
-        name: "Avalanche",
-        color: "#E84142",
-        icon: <path d="M16 4C9.4 4 4 9.4 4 16s5.4 12 12 12 12-5.4 12-12S22.6 4 16 4zm4.5 16h-2.8c-.4 0-.7-.2-.9-.5l-1-1.8c-.2-.3-.5-.3-.7 0l-1 1.8c-.2.3-.5.5-.9.5h-2.7l5.5-9.5 4 7z" />,
-    },
-    xlm: {
-        name: "Stellar",
-        color: "#14B6E7",
-        icon: <path d="M22.5 8.5l-1.5 1c-2.5-2-6-2.5-9-1.5L7 10.5l-1.5-1 6-3c3.5-1.5 7.5-.5 11 2zm-13 15l1.5-1c2.5 2 6 2.5 9 1.5l5-2.5 1.5 1-6 3c-3.5 1.5-7.5.5-11-2zm-3-7.5l15-7.5 1.5 1-15 7.5-1.5-1zm8 5l15-7.5-1.5-1-15 7.5 1.5 1z" />,
-    },
-    xrp: {
-        name: "XRP",
-        color: "#23292F",
-        icon: <path d="M10 8l3.5 4L10 16h2.5l2-2.3c.3-.3.7-.3 1 0l2 2.3H20l-3.5-4L20 8h-2.5l-2 2.3c-.3.3-.7.3-1 0L12.5 8H10z" />,
-    },
+/* ── Crypto metadata: ticker → name + cryptologos.cc slug ── */
+const cryptoMeta: Record<string, { name: string; slug: string }> = {
+    btc: { name: "Bitcoin", slug: "bitcoin-btc-logo" },
+    eth: { name: "Ethereum", slug: "ethereum-eth-logo" },
+    usdt: { name: "Tether", slug: "tether-usdt-logo" },
+    ltc: { name: "Litecoin", slug: "litecoin-ltc-logo" },
+    xmr: { name: "Monero", slug: "monero-xmr-logo" },
+    trx: { name: "TRON", slug: "tron-trx-logo" },
+    sol: { name: "Solana", slug: "solana-sol-logo" },
+    doge: { name: "Dogecoin", slug: "dogecoin-doge-logo" },
+    bnb: { name: "BNB", slug: "bnb-bnb-logo" },
+    matic: { name: "Polygon", slug: "polygon-matic-logo" },
+    usdc: { name: "USD Coin", slug: "usd-coin-usdc-logo" },
+    ada: { name: "Cardano", slug: "cardano-ada-logo" },
+    dot: { name: "Polkadot", slug: "polkadot-new-dot-logo" },
+    avax: { name: "Avalanche", slug: "avalanche-avax-logo" },
+    xlm: { name: "Stellar", slug: "stellar-xlm-logo" },
+    xrp: { name: "XRP", slug: "xrp-xrp-logo" },
+    shib: { name: "Shiba Inu", slug: "shiba-inu-shib-logo" },
+    dai: { name: "Dai", slug: "multi-collateral-dai-dai-logo" },
+    atom: { name: "Cosmos", slug: "cosmos-atom-logo" },
+    algo: { name: "Algorand", slug: "algorand-algo-logo" },
+    near: { name: "NEAR", slug: "near-protocol-near-logo" },
+    apt: { name: "Aptos", slug: "aptos-apt-logo" },
+    ftm: { name: "Fantom", slug: "fantom-ftm-logo" },
+    ton: { name: "Toncoin", slug: "toncoin-ton-logo" },
 };
 
-/* Fallback icon for unknown coins */
 function CryptoIcon({ code, size = 32 }: { code: string; size?: number }) {
-    const info = cryptoIcons[code];
-    if (info) {
+    const meta = cryptoMeta[code];
+    if (meta) {
         return (
-            <svg width={size} height={size} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="16" cy="16" r="16" fill={info.color} />
-                <g fill="white">{info.icon}</g>
-            </svg>
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+                src={`https://cryptologos.cc/logos/${meta.slug}.svg`}
+                alt={meta.name}
+                width={size}
+                height={size}
+                className="rounded-full"
+                style={{ width: size, height: size }}
+                loading="lazy"
+            />
         );
     }
-    // Fallback: colored circle with first letter(s)
+    // Fallback: colored circle with ticker letters
     const hue = code.split("").reduce((a, c) => a + c.charCodeAt(0), 0) % 360;
     return (
         <svg width={size} height={size} viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
@@ -131,7 +80,7 @@ function CryptoIcon({ code, size = 32 }: { code: string; size?: number }) {
 }
 
 function getCryptoName(code: string): string {
-    return cryptoIcons[code]?.name || code.toUpperCase();
+    return cryptoMeta[code]?.name || code.toUpperCase();
 }
 
 /* ── Payment method SVG icons by code ────────────────────── */
@@ -348,8 +297,8 @@ function TopUpContent() {
     };
 
     // Split currencies into popular (with icons) and others
-    const popularCurrencies = cryptoCurrencies.filter((c) => cryptoIcons[c]);
-    const otherCurrencies = cryptoCurrencies.filter((c) => !cryptoIcons[c]);
+    const popularCurrencies = cryptoCurrencies.filter((c) => cryptoMeta[c]);
+    const otherCurrencies = cryptoCurrencies.filter((c) => !cryptoMeta[c]);
     const filteredPopular = cryptoSearch ? popularCurrencies.filter((c) => c.includes(cryptoSearch.toLowerCase()) || getCryptoName(c).toLowerCase().includes(cryptoSearch.toLowerCase())) : popularCurrencies;
     const filteredOther = cryptoSearch ? otherCurrencies.filter((c) => c.includes(cryptoSearch.toLowerCase()) || getCryptoName(c).toLowerCase().includes(cryptoSearch.toLowerCase())) : otherCurrencies;
 
