@@ -41,11 +41,21 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "productId and rating (1-5) required" }, { status: 400 });
     }
 
-    const hasPurchased = await db.order.findFirst({
+    const MIN_ORDERS_FOR_REVIEW = Number(process.env.MIN_ORDERS_FOR_REVIEW) || 5;
+
+    const completedOrders = await db.order.count({
+        where: { userId, status: "COMPLETED" },
+    });
+
+    if (completedOrders < MIN_ORDERS_FOR_REVIEW) {
+        return NextResponse.json({ error: `You need at least ${MIN_ORDERS_FOR_REVIEW} completed orders to leave a review (you have ${completedOrders})` }, { status: 403 });
+    }
+
+    const hasPurchasedThis = await db.order.findFirst({
         where: { userId, productId, status: "COMPLETED" },
     });
 
-    if (!hasPurchased) {
+    if (!hasPurchasedThis) {
         return NextResponse.json({ error: "You must purchase this product before reviewing" }, { status: 403 });
     }
 

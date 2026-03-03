@@ -96,6 +96,35 @@ const whyUs = [
     { icon: Clock, title: "Compensation", desc: "If a cheat goes down for any reason, the time will always be compensated." },
 ];
 
+/* ── Animated Counter ─────────────────────────────────────── */
+function AnimatedStat({ label, target, suffix }: { label: string; target: number; suffix: string }) {
+    const [count, setCount] = useState(0);
+    useEffect(() => {
+        if (target === 0) return;
+        let start = 0;
+        const duration = 2000;
+        const step = Math.max(1, Math.floor(target / (duration / 16)));
+        const timer = setInterval(() => {
+            start += step;
+            if (start >= target) { start = target; clearInterval(timer); }
+            setCount(start);
+        }, 16);
+        return () => clearInterval(timer);
+    }, [target]);
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.7 }}
+            className="text-center py-5 rounded-xl border bg-card hover:bg-card/80 transition-colors"
+        >
+            <div className="text-xl font-bold font-mono">{count > 0 ? count.toLocaleString() : "—"}{count > 0 ? suffix : ""}</div>
+            <div className="text-xs text-muted-foreground mt-0.5">{label}</div>
+        </motion.div>
+    );
+}
+
 /* ── Marquee Component ────────────────────────────────────── */
 function MarqueeRow({ items, reverse = false }: { items: typeof row1; reverse?: boolean }) {
     const style = reverse ? { animationDirection: "reverse" as const } : {};
@@ -145,12 +174,17 @@ export default function Home() {
     const productCount = products.length;
 
     return (
-        <div className="flex justify-center w-full flex-col items-center px-4">
+        <div className="flex justify-center w-full flex-col items-center px-4 relative">
+            {/* Animated glow background */}
+            <div className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-primary/5 blur-[120px] animate-pulse" />
+            <div className="pointer-events-none absolute top-32 left-1/4 w-[400px] h-[400px] rounded-full bg-primary/3 blur-[100px] animate-pulse [animation-delay:1s]" />
+            <div className="pointer-events-none absolute top-48 right-1/4 w-[300px] h-[300px] rounded-full bg-primary/4 blur-[80px] animate-pulse [animation-delay:2s]" />
+
             {/* Gradient overlay */}
             <div className="pointer-events-none absolute inset-x-0 md:top-[52px] top-[51px] h-1/6 bg-gradient-to-b from-background z-10" />
 
             {/* ── Hero ─────────────────────────────── */}
-            <div className="mt-8 md:mt-[152px]">
+            <div className="mt-8 md:mt-[152px] relative z-20">
                 <motion.div
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -171,10 +205,10 @@ export default function Home() {
                 </motion.div>
 
                 <motion.h1
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.05 }}
-                    className="pt-8 font-semibold md:text-5xl text-4xl pb-10 text-center pointer-events-none whitespace-pre-wrap bg-gradient-to-b from-white to-muted bg-clip-text text-transparent leading-none"
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ delay: 0.05, type: "spring", stiffness: 100 }}
+                    className="pt-8 font-bold md:text-6xl text-4xl pb-10 text-center pointer-events-none whitespace-pre-wrap bg-gradient-to-b from-white via-white to-muted-foreground/40 bg-clip-text text-transparent leading-none tracking-tight"
                 >
                     Unlock Your Advantage
                 </motion.h1>
@@ -441,17 +475,14 @@ export default function Home() {
                     </div>
                 </div>
 
-                {/* Stats */}
+                {/* Animated Stats */}
                 <div className="grid grid-cols-3 gap-4 mt-8">
                     {[
-                        { label: "Orders", value: stats ? stats.orders.toLocaleString() : "—" },
-                        { label: "Customers", value: stats ? stats.customers.toLocaleString() : "—" },
-                        { label: "Reviews", value: stats ? stats.reviews.toLocaleString() : "—" },
+                        { label: "Orders", target: stats?.orders || 0, suffix: "+" },
+                        { label: "Customers", target: stats?.customers || 0, suffix: "+" },
+                        { label: "Reviews", target: stats?.reviews || 0, suffix: "+" },
                     ].map((stat) => (
-                        <div key={stat.label} className="text-center py-4 rounded-xl border bg-card">
-                            <div className="text-lg font-bold">{stat.value}</div>
-                            <div className="text-xs text-muted-foreground">{stat.label}</div>
-                        </div>
+                        <AnimatedStat key={stat.label} label={stat.label} target={stat.target} suffix={stat.suffix} />
                     ))}
                 </div>
             </motion.div>

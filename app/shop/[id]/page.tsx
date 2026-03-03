@@ -403,7 +403,7 @@ export default function ProductPage() {
                                         {submittingReview ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
                                     </button>
                                 </div>
-                                <p className="text-[10px] text-muted-foreground mt-2">You must own this product to review it.</p>
+                                <p className="text-[10px] text-muted-foreground mt-2">Requires 5+ completed orders and ownership of this product.</p>
                             </div>
                         )}
 

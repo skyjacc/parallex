@@ -138,6 +138,23 @@ export default function AdminSettingsPage() {
                 </div>
             </div>
 
+            {/* Review Settings */}
+            <div className="rounded-lg border bg-card overflow-hidden">
+                <div className="p-5 border-b">
+                    <h3 className="text-sm font-semibold flex items-center gap-2">
+                        <Zap size={16} className="text-primary" />
+                        Reviews
+                    </h3>
+                </div>
+                <div className="p-5 flex flex-col gap-4">
+                    <div>
+                        <label className="text-sm font-medium mb-1.5 block">Min Orders to Leave Review</label>
+                        <input className="border-input flex h-9 w-full rounded-md border bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring" defaultValue="5" type="number" />
+                        <p className="text-xs text-muted-foreground mt-1.5">Users need at least this many completed orders to write a review. Set via <code className="bg-muted/40 px-1 py-0.5 rounded text-[10px]">MIN_ORDERS_FOR_REVIEW</code> env variable.</p>
+                    </div>
+                </div>
+            </div>
+
             {/* Security Info */}
             <div className="rounded-lg border bg-card overflow-hidden">
                 <div className="p-5 border-b">
