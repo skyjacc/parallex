@@ -138,6 +138,7 @@ export default function Home() {
     const [products, setProducts] = useState<ProductData[]>([]);
     const [loaded, setLoaded] = useState(false);
     const [stats, setStats] = useState<{ orders: number; customers: number; reviews: number } | null>(null);
+    const [homeReviews, setHomeReviews] = useState<{ userName: string; productName: string; productId: string; rating: number; comment: string }[]>([]);
 
     useEffect(() => {
         fetch("/api/products")
@@ -147,6 +148,10 @@ export default function Home() {
         fetch("/api/stats")
             .then((r) => r.json())
             .then((data) => { if (data.ok) setStats(data); });
+        fetch("/api/reviews/latest")
+            .then((r) => r.json())
+            .then((data) => { if (data.ok) setHomeReviews(data.reviews); })
+            .catch(() => {});
     }, []);
 
     const featured = products.slice(0, 4);
@@ -380,6 +385,37 @@ export default function Home() {
                     })}
                 </div>
             </motion.div>
+
+            {/* ── Reviews ──────────────────────────── */}
+            {homeReviews.length > 0 && (
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.55 }}
+                    className="max-w-6xl w-full pt-24"
+                >
+                    <h2 className="text-2xl font-semibold text-center mb-2">Reviews</h2>
+                    <p className="text-sm text-muted-foreground text-center mb-8 max-w-lg mx-auto">
+                        What our customers say about us.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {homeReviews.slice(0, 6).map((r, i) => (
+                            <Link key={i} href={`/shop/${r.productId}`} className="rounded-xl border bg-card p-4 flex flex-col gap-2 hover:shadow-lg transition-all cursor-pointer group">
+                                <div className="flex gap-0.5">
+                                    {[1,2,3,4,5].map(s => (
+                                        <span key={s} className={s <= r.rating ? "text-amber-400" : "text-muted-foreground/20"}>&#9733;</span>
+                                    ))}
+                                </div>
+                                <p className="text-xs text-muted-foreground line-clamp-2 flex-1">{r.comment || "Great product!"}</p>
+                                <div className="flex items-center justify-between mt-auto pt-2 border-t">
+                                    <span className="text-[11px] font-medium">{r.userName}</span>
+                                    <span className="text-[10px] text-muted-foreground group-hover:text-primary transition-colors">{r.productName}</span>
+                                </div>
+                            </Link>
+                        ))}
+                    </div>
+                </motion.div>
+            )}
 
             {/* ── Payment Methods ──────────────────── */}
             <motion.div
