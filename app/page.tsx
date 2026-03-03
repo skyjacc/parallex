@@ -66,6 +66,26 @@ interface ProductData {
     totalSold: number;
 }
 
+/* ── Fake Reviews for marquee ─────────────────────────────── */
+const fakeReviews = [
+    { name: "Skyline - FPS Rust Cheat", text: "Best ESP I've ever used. Undetected for 3 months straight.", rating: 5 },
+    { name: "HDFHD - Aeon Apex Cheat", text: "BEST APEX CHEAT WOW. Aimbot is insane.", rating: 5 },
+    { name: "NotFlokii - Serenity EFT", text: "This cheat has been my top 1 for a while, can't wait for the internal version.", rating: 5 },
+    { name: "rzvisualz - Disconnect Rust", text: "This cheat basically has all the features needed for legit and rage.", rating: 5 },
+    { name: "Arcturus - Satanova Fortnite", text: "Easy to use, easy to load, no crashes. Perfect fortnite cheat.", rating: 5 },
+    { name: "therealyoda - Cobra R6", text: "Best R6 cheat in the market. Aimbot + ESP combo is perfect.", rating: 5 },
+    { name: "SaucySaiyan - FPS Rust", text: "Easy to use, great features. Menu looks very clean.", rating: 5 },
+    { name: "twat2 - Predator CS2", text: "I play rage and legit, I recommend this 100%.", rating: 5 },
+    { name: "Hekieee - Reported Spoofer", text: "Works for every game, spoofed my HWID in seconds. 5 stars.", rating: 5 },
+    { name: "BMGL - Crimson Valorant", text: "Helps so much with ranked games and the aimbot is awesome.", rating: 5 },
+    { name: "CANSIN - Steam Accounts", text: "Account works perfectly, instant delivery. Thank you!", rating: 5 },
+    { name: "shadower - Lightning PUBG", text: "I love this cheat, ESP is super useful for competitive play.", rating: 5 },
+    { name: "Nielz - Next EFT Pro", text: "New ESP features are great, no bans after 2 months of use.", rating: 5 },
+    { name: "timpskii - Wave Roblox", text: "Best executor, works on all versions. No crashes.", rating: 5 },
+    { name: "40fps - Exception Spoofer", text: "Spoofer works well, good price for what you get.", rating: 5 },
+    { name: "Serv - Reported Spoofer", text: "One of the best spoofers for the amount of games it supports.", rating: 5 },
+];
+
 /* ── Why Choose Us ────────────────────────────────────────── */
 const whyUs = [
     { icon: Zap, title: "Instant Access", desc: "Get your key delivered instantly after purchase. No waiting, no delays." },
@@ -349,6 +369,34 @@ export default function Home() {
                             </motion.div>
                         );
                     })}
+                </div>
+            </motion.div>
+
+            {/* ── Reviews Marquee ─────────────────── */}
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.55 }}
+                className="max-w-6xl w-full pt-24"
+            >
+                <h2 className="text-2xl font-semibold text-center mb-2">Reviews</h2>
+                <p className="text-sm text-muted-foreground text-center mb-8 max-w-lg mx-auto">
+                    What our customers say about us.
+                </p>
+                <div className="relative overflow-hidden">
+                    <div className="flex gap-4 animate-marquee [--duration:60s]">
+                        {[...fakeReviews, ...fakeReviews].map((r, i) => (
+                            <div key={i} className="shrink-0 w-72 rounded-xl border bg-card p-4 flex flex-col gap-2">
+                                <div className="flex gap-0.5">{Array.from({ length: 5 }, (_, s) => (
+                                    <span key={s} className={s < r.rating ? "text-amber-400" : "text-muted-foreground/20"}>&#9733;</span>
+                                ))}</div>
+                                <p className="text-xs text-muted-foreground line-clamp-3">{r.text}</p>
+                                <p className="text-[11px] text-foreground font-medium mt-auto">{r.name}</p>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="pointer-events-none absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-background" />
+                    <div className="pointer-events-none absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-background" />
                 </div>
             </motion.div>
 

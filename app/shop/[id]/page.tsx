@@ -21,7 +21,11 @@ import {
     Users,
     Star,
     RefreshCw,
+    MessageSquare,
+    Send,
 } from "lucide-react";
+
+interface ReviewData { id: string; rating: number; comment: string; userName: string; createdAt: string }
 
 interface Product {
     id: string;
@@ -60,6 +64,10 @@ export default function ProductPage() {
     const [error, setError] = useState("");
     const [buyResult, setBuyResult] = useState<BuyResult | null>(null);
     const [copied, setCopied] = useState(false);
+    const [reviews, setReviews] = useState<ReviewData[]>([]);
+    const [reviewRating, setReviewRating] = useState(5);
+    const [reviewComment, setReviewComment] = useState("");
+    const [submittingReview, setSubmittingReview] = useState(false);
 
     useEffect(() => {
         fetch(`/api/products/${id}`)
@@ -70,7 +78,26 @@ export default function ProductPage() {
             })
             .catch(() => setError("Failed to load product"))
             .finally(() => setLoading(false));
+        fetch(`/api/reviews?productId=${id}`)
+            .then((r) => r.json())
+            .then((d) => { if (d.ok) setReviews(d.reviews); });
     }, [id]);
+
+    const submitReview = async () => {
+        setSubmittingReview(true);
+        try {
+            const r = await fetch("/api/reviews", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ productId: id, rating: reviewRating, comment: reviewComment }) });
+            const d = await r.json();
+            if (d.ok) {
+                toast.success("Review posted!");
+                setReviewComment("");
+                const rr = await fetch(`/api/reviews?productId=${id}`);
+                const dd = await rr.json();
+                if (dd.ok) setReviews(dd.reviews);
+            } else toast.error(d.error);
+        } catch { toast.error("Failed"); }
+        setSubmittingReview(false);
+    };
 
     const handleBuy = async () => {
         if (!session?.user) {
@@ -347,6 +374,66 @@ export default function ProductPage() {
                                 )}
                             </div>
                         </div>
+                    </div>
+                )}
+
+                {/* Reviews section */}
+                {!buyResult && product && (
+                    <div className="mt-8">
+                        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                            <MessageSquare size={18} />
+                            Reviews ({reviews.length})
+                        </h2>
+
+                        {/* Write review */}
+                        {session?.user && (
+                            <div className="rounded-xl border bg-card p-5 mb-4">
+                                <p className="text-sm font-medium mb-3">Write a Review</p>
+                                <div className="flex items-center gap-1 mb-3">
+                                    {[1, 2, 3, 4, 5].map((s) => (
+                                        <button key={s} onClick={() => setReviewRating(s)} className="cursor-pointer p-0.5">
+                                            <Star size={20} className={s <= reviewRating ? "text-amber-400 fill-amber-400" : "text-muted-foreground/30"} />
+                                        </button>
+                                    ))}
+                                    <span className="text-xs text-muted-foreground ml-2">{reviewRating}/5</span>
+                                </div>
+                                <div className="flex gap-2">
+                                    <input className="border-input flex h-9 w-full rounded-md border bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring" placeholder="Share your experience..." value={reviewComment} onChange={(e) => setReviewComment(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") submitReview(); }} />
+                                    <button onClick={submitReview} disabled={submittingReview} className="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground size-9 shrink-0 cursor-pointer hover:bg-primary/90 disabled:opacity-50">
+                                        {submittingReview ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                                    </button>
+                                </div>
+                                <p className="text-[10px] text-muted-foreground mt-2">You must own this product to review it.</p>
+                            </div>
+                        )}
+
+                        {/* Reviews list */}
+                        {reviews.length === 0 ? (
+                            <div className="rounded-xl border bg-card p-8 text-center">
+                                <Star size={32} className="mx-auto text-muted-foreground/20 mb-2" />
+                                <p className="text-sm text-muted-foreground">No reviews yet. Be the first!</p>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col gap-2">
+                                {reviews.map((r) => (
+                                    <div key={r.id} className="rounded-xl border bg-card p-4">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center gap-2">
+                                                <span className="w-7 h-7 rounded-md bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground">{r.userName[0]?.toUpperCase()}</span>
+                                                <span className="text-sm font-medium">{r.userName}</span>
+                                            </div>
+                                            <div className="flex items-center gap-0.5">
+                                                {[1, 2, 3, 4, 5].map((s) => (
+                                                    <Star key={s} size={12} className={s <= r.rating ? "text-amber-400 fill-amber-400" : "text-muted-foreground/20"} />
+                                                ))}
+                                            </div>
+                                        </div>
+                                        {r.comment && <p className="text-sm text-muted-foreground">{r.comment}</p>}
+                                        <p className="text-[10px] text-muted-foreground/60 mt-2">{new Date(r.createdAt).toLocaleDateString()}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
