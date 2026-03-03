@@ -35,8 +35,15 @@ export async function middleware(request: NextRequest) {
     }
 
     // Admin route → check role
-    if (pathname.startsWith("/admin") && token.role !== "ADMIN") {
-        return NextResponse.redirect(new URL("/", request.url));
+    if (pathname.startsWith("/admin")) {
+        const isAdmin = token.role === "ADMIN";
+        const isSupport = token.role === "SUPPORT";
+        if (!isAdmin && !isSupport) {
+            return NextResponse.redirect(new URL("/", request.url));
+        }
+        if (isSupport && !pathname.startsWith("/admin/support")) {
+            return NextResponse.redirect(new URL("/admin/support", request.url));
+        }
     }
 
     return NextResponse.next();

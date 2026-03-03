@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
+import { logBalance } from "@/lib/balance-log";
 
 const FRAUD_CARD_THRESHOLD = 3;
 
@@ -68,15 +69,18 @@ export async function POST(
             });
 
             // Referral commission: 10% lifetime
+            let referrerId: string | null = null;
+            let commission = 0;
             if (user.referredBy) {
-                const commission = Math.floor(product.pricePrx * 0.1);
+                commission = Math.floor(product.pricePrx * 0.1);
                 if (commission > 0) {
                     await tx.user.update({ where: { id: user.referredBy }, data: { prxBalance: { increment: commission } } });
                     await tx.referral.updateMany({ where: { referredUserId: user.id }, data: { bonusPrx: { increment: commission } } });
+                    referrerId = user.referredBy;
                 }
             }
 
-            return {
+            return { referrerId, commission,
                 orderId: order.id,
                 productName: product.name,
                 key: isFraudRisk ? null : stock.content,
@@ -85,6 +89,14 @@ export async function POST(
                 status: isFraudRisk ? "REVIEW" as const : "COMPLETED" as const,
             };
         });
+
+        // Balance logs (outside transaction for non-critical)
+        try {
+            await logBalance((session.user as any).id, "PURCHASE", -result.costPrx, `Bought "${result.productName}"`);
+            if (result.referrerId && result.commission > 0) {
+                await logBalance(result.referrerId, "REFERRAL_COMMISSION", result.commission, `10% from ${(session.user as any).name}'s purchase`);
+            }
+        } catch { /* non-critical */ }
 
         return NextResponse.json({ ok: true, ...result });
     } catch (error: any) {

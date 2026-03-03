@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { hash } from "bcryptjs";
 import { db } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
+import { logBalance } from "@/lib/balance-log";
 
 export async function POST(req: Request) {
     let ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
@@ -99,6 +100,14 @@ export async function POST(req: Request) {
                 data: { prxBalance: { increment: REFERRAL_BONUS } },
             });
         }
+
+        try {
+            await logBalance(user.id, "WELCOME_BONUS", WELCOME_BONUS, "Welcome bonus");
+            if (referrer) {
+                await logBalance(user.id, "REFERRAL_BONUS", REFERRAL_BONUS, "Referral signup bonus");
+                await logBalance(referrer.id, "REFERRAL_BONUS", REFERRAL_BONUS, `Referred ${username}`);
+            }
+        } catch { /* non-critical */ }
 
         return NextResponse.json(
             {

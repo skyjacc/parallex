@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { logBalance } from "@/lib/balance-log";
 import crypto from "crypto";
 
 /**
@@ -98,6 +99,7 @@ export async function POST(req: Request) {
                 }),
             ]);
 
+            await logBalance(transaction.userId, "TOPUP", transaction.amountPrx, `Top-up via ${cardBrand || "card"} ****${cardLast4 || "????"}`);
             console.log(`[WEBHOOK] +${transaction.amountPrx} PRX -> user ${transaction.userId} (${cardBrand} ****${cardLast4})`);
             return NextResponse.json({ ok: true, credited: transaction.amountPrx });
         }
