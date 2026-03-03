@@ -58,7 +58,7 @@ export async function PATCH(req: Request) {
     }
 
     try {
-        const { id, role, prxBalance, flagged } = await req.json();
+        const { id, role, prxBalance, flagged, discordId, discordTag } = await req.json();
 
         if (!id) {
             return NextResponse.json({ ok: false, error: "User ID is required" }, { status: 400 });
@@ -69,9 +69,11 @@ export async function PATCH(req: Request) {
         }
 
         const data: Record<string, any> = {};
-        if (role === "ADMIN" || role === "USER") data.role = role;
+        if (role === "ADMIN" || role === "USER" || role === "SUPPORT") data.role = role;
         if (typeof prxBalance === "number" && prxBalance >= 0) data.prxBalance = prxBalance;
         if (typeof flagged === "boolean") data.flagged = flagged;
+        if (typeof discordId === "string") data.discordId = discordId || null;
+        if (typeof discordTag === "string") data.discordTag = discordTag || null;
 
         const user = await db.user.update({ where: { id }, data });
 

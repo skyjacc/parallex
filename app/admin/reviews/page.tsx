@@ -18,6 +18,20 @@ export default function AdminReviewsPage() {
     const approve = async (id: string) => { setProcessing(id); await fetch("/api/admin/reviews", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, approved: true }) }); toast.success("Approved"); load(); setProcessing(null); };
     const reject = async (id: string) => { setProcessing(id); await fetch("/api/admin/reviews", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, approved: false }) }); toast.success("Rejected"); load(); setProcessing(null); };
     const remove = async (id: string) => { if (!confirm("Delete this review?")) return; await fetch("/api/admin/reviews", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) }); toast.success("Deleted"); load(); };
+    const massApprove = async () => {
+        const ids = reviews.filter(r => !r.approved).map(r => r.id);
+        if (ids.length === 0) { toast.info("No pending reviews"); return; }
+        if (!confirm(`Approve all ${ids.length} pending reviews?`)) return;
+        await fetch("/api/admin/reviews", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids, approved: true }) });
+        toast.success(`${ids.length} reviews approved`); load();
+    };
+    const massReject = async () => {
+        const ids = reviews.filter(r => r.approved).map(r => r.id);
+        if (ids.length === 0) return;
+        if (!confirm(`Unapprove all ${ids.length} reviews?`)) return;
+        await fetch("/api/admin/reviews", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids, approved: false }) });
+        toast.success(`${ids.length} reviews unapproved`); load();
+    };
 
     const pendingCount = reviews.filter(r => !r.approved).length;
     const filtered = reviews.filter(r => filter === "all" || (filter === "pending" && !r.approved) || (filter === "approved" && r.approved));
@@ -30,12 +44,19 @@ export default function AdminReviewsPage() {
                 <div className="rounded-lg border bg-card p-4"><p className="text-xs text-muted-foreground mb-1">Approved</p><p className="text-2xl font-mono font-semibold">{reviews.filter(r => r.approved).length}</p></div>
             </div>
 
-            <div className="flex gap-1">
-                {(["all", "pending", "approved"] as const).map(f => (
-                    <button key={f} onClick={() => setFilter(f)} className={`text-xs px-3 py-1.5 rounded-md border font-medium transition-all cursor-pointer ${filter === f ? "bg-primary text-primary-foreground border-primary" : "hover:bg-accent"}`}>
-                        {f === "all" ? "All" : f === "pending" ? `Pending (${pendingCount})` : "Approved"}
+            <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex gap-1">
+                    {(["all", "pending", "approved"] as const).map(f => (
+                        <button key={f} onClick={() => setFilter(f)} className={`text-xs px-3 py-1.5 rounded-md border font-medium transition-all cursor-pointer ${filter === f ? "bg-primary text-primary-foreground border-primary" : "hover:bg-accent"}`}>
+                            {f === "all" ? "All" : f === "pending" ? `Pending (${pendingCount})` : "Approved"}
+                        </button>
+                    ))}
+                </div>
+                {pendingCount > 0 && (
+                    <button onClick={massApprove} className="text-xs px-3 py-1.5 rounded-md border font-medium bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20 cursor-pointer transition-colors">
+                        Approve All ({pendingCount})
                     </button>
-                ))}
+                )}
             </div>
 
             {loading ? <div className="flex items-center justify-center py-20"><Loader2 size={24} className="animate-spin text-muted-foreground" /></div> : filtered.length === 0 ? (

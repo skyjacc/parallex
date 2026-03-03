@@ -19,7 +19,7 @@ export async function GET(
             where: { id },
             select: {
                 id: true, name: true, email: true, role: true,
-                prxBalance: true, flagged: true, createdAt: true,
+                prxBalance: true, flagged: true, discordId: true, discordTag: true, createdAt: true,
             },
         });
 

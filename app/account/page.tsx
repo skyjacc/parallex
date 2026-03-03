@@ -19,6 +19,9 @@ export default function AccountPage() {
     const usr = session?.user as any;
     const [tab, setTab] = useState<Tab>("account");
     const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [discordTag, setDiscordTag] = useState("");
+    const [discordSaving, setDiscordSaving] = useState(false);
+    const [accountLoaded, setAccountLoaded] = useState(false);
     const [orders, setOrders] = useState<Order[]>([]);
     const [balLogs, setBalLogs] = useState<BalLog[]>([]);
     const [refData, setRefData] = useState<RefData | null>(null);
@@ -34,6 +37,7 @@ export default function AccountPage() {
     }, []);
 
     useEffect(() => {
+        if (!accountLoaded) { fetch("/api/account").then(r => r.json()).then(d => { if (d.ok && d.user) { setDiscordTag(d.user.discordTag || ""); } }).finally(() => setAccountLoaded(true)); }
         if (tab === "invoices" && transactions.length === 0) { setLoading(true); fetch("/api/transactions").then(r => r.json()).then(d => { if (d.ok) setTransactions(d.transactions); }).finally(() => setLoading(false)); }
         if (tab === "orders" && orders.length === 0) { setLoading(true); fetch("/api/orders").then(r => r.json()).then(d => { if (d.ok) { setOrders(d.orders); setOrderCount(d.orders.length); } }).finally(() => setLoading(false)); }
         if (tab === "balances" && balLogs.length === 0) { setLoading(true); fetch("/api/balance-logs").then(r => r.json()).then(d => { if (d.ok) setBalLogs(d.logs); }).finally(() => setLoading(false)); }
@@ -91,6 +95,25 @@ export default function AccountPage() {
                             <div className="rounded-xl border bg-card p-5"><div className="flex items-center gap-2 mb-2"><Zap size={16} className="text-primary" /><span className="text-xs text-muted-foreground">Balance</span></div><p className="text-2xl font-mono font-bold">{usr?.prxBalance || 0} <span className="text-sm font-normal text-muted-foreground">PRX</span></p></div>
                             <div className="rounded-xl border bg-card p-5"><div className="flex items-center gap-2 mb-2"><ShoppingBag size={16} className="text-primary" /><span className="text-xs text-muted-foreground">Orders</span></div><p className="text-2xl font-mono font-bold">{orderCount !== null ? orderCount : "—"}</p></div>
                             <div className="rounded-xl border bg-card p-5"><div className="flex items-center gap-2 mb-2"><Calendar size={16} className="text-primary" /><span className="text-xs text-muted-foreground">Joined</span></div><p className="text-sm font-medium">Member since registration</p></div>
+                        </div>
+
+                        {/* Discord connection */}
+                        <div className="rounded-xl border bg-card p-5">
+                            <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="text-[#5865F2]"><path d="M20.317 4.492c-1.53-.69-3.17-1.2-4.885-1.49a.075.075 0 00-.079.036c-.21.369-.444.85-.608 1.23a18.566 18.566 0 00-5.487 0 12.36 12.36 0 00-.617-1.23A.077.077 0 008.562 3c-1.714.29-3.354.8-4.885 1.491a.07.07 0 00-.032.027C.533 9.093-.32 13.555.099 17.961a.08.08 0 00.031.055 20.03 20.03 0 005.993 2.98.078.078 0 00.084-.026c.462-.62.874-1.275 1.226-1.963.021-.04.001-.088-.041-.104a13.201 13.201 0 01-1.872-.878.075.075 0 01-.008-.125c.126-.093.252-.19.372-.287a.075.075 0 01.078-.01c3.927 1.764 8.18 1.764 12.061 0a.075.075 0 01.079.009c.12.098.245.195.372.288a.075.075 0 01-.006.125c-.598.344-1.22.635-1.873.877a.075.075 0 00-.041.105c.36.687.772 1.341 1.225 1.962a.077.077 0 00.084.028 19.963 19.963 0 006.002-2.981.076.076 0 00.032-.054c.5-5.094-.838-9.52-3.549-13.442a.06.06 0 00-.031-.028z"/></svg>
+                                Discord
+                            </h3>
+                            <p className="text-xs text-muted-foreground mb-3">Link your Discord for faster support and updates.</p>
+                            <div className="flex gap-2">
+                                <input className="border-input flex h-9 w-full rounded-md border bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring" placeholder="username or username#0001" value={discordTag} onChange={(e) => setDiscordTag(e.target.value)} />
+                                <button
+                                    onClick={async () => { setDiscordSaving(true); try { const r = await fetch("/api/account", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ discordTag }) }); const d = await r.json(); if (d.ok) toast.success("Discord saved"); } catch {} setDiscordSaving(false); }}
+                                    disabled={discordSaving}
+                                    className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-[#5865F2] text-white h-9 px-4 cursor-pointer gap-2 hover:bg-[#4752C4] disabled:opacity-50 shrink-0"
+                                >
+                                    {discordSaving ? <Loader2 size={14} className="animate-spin" /> : "Save"}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}

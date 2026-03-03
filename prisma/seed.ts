@@ -291,6 +291,9 @@ async function main() {
     // ── Fake Clients with Purchases ─────────────────────────
     await seedFakeClients();
 
+    // ── Seed Approved Reviews ─────────────────────────────
+    await seedFakeReviews();
+
     console.log("\nSeed complete!");
 }
 
@@ -532,6 +535,48 @@ async function seedFakeClients() {
     }
 
     console.log(`\nClients seeded: ~${COUNT} users, ${statOrders} orders, ${statReviews} reviews, ${statTx} transactions`);
+}
+
+async function seedFakeReviews() {
+    const existing = await prisma.review.count({ where: { approved: true } });
+    if (existing >= 6) { console.log(`${existing} approved reviews exist, skipping`); return; }
+
+    const fakeReviews = [
+        { comment: "Best ESP I've ever used. Undetected for 3 months straight.", rating: 5 },
+        { comment: "Aimbot is insane. Easy to use, no crashes.", rating: 5 },
+        { comment: "This cheat has all the features needed for legit and rage.", rating: 5 },
+        { comment: "Easy to use, easy to load. Perfect cheat.", rating: 5 },
+        { comment: "Best R6 cheat in the market. ESP + aimbot combo is great.", rating: 5 },
+        { comment: "Helps so much with ranked games. Still undetected!", rating: 5 },
+        { comment: "Works perfectly, instant delivery. Thank you!", rating: 5 },
+        { comment: "Menu looks very clean. Great features.", rating: 4 },
+        { comment: "Been using it for 2 months, still not banned.", rating: 5 },
+        { comment: "Good price for what you get. Recommend!", rating: 4 },
+        { comment: "Support helped me fast. Great service.", rating: 5 },
+        { comment: "ESP is super useful. No more getting surprised.", rating: 5 },
+    ];
+
+    const users = await prisma.user.findMany({ take: 12, select: { id: true } });
+    const products = await prisma.product.findMany({ take: 12, select: { id: true } });
+
+    if (users.length < 2 || products.length < 2) return;
+
+    let count = 0;
+    for (let i = 0; i < Math.min(fakeReviews.length, users.length, products.length); i++) {
+        try {
+            await prisma.review.create({
+                data: {
+                    userId: users[i % users.length].id,
+                    productId: products[i % products.length].id,
+                    rating: fakeReviews[i].rating,
+                    comment: fakeReviews[i].comment,
+                    approved: true,
+                },
+            });
+            count++;
+        } catch { /* unique constraint — skip */ }
+    }
+    console.log(`${count} approved reviews seeded`);
 }
 
 main()

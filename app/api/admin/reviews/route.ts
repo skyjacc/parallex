@@ -30,7 +30,13 @@ export async function PATCH(req: Request) {
     const session = await getServerSession(authOptions);
     if ((session?.user as any)?.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    const { id, approved } = await req.json();
+    const { id, ids, approved } = await req.json();
+
+    if (ids && Array.isArray(ids) && typeof approved === "boolean") {
+        await db.review.updateMany({ where: { id: { in: ids } }, data: { approved } });
+        return NextResponse.json({ ok: true, count: ids.length });
+    }
+
     if (!id || typeof approved !== "boolean") return NextResponse.json({ error: "id and approved required" }, { status: 400 });
 
     await db.review.update({ where: { id }, data: { approved } });
