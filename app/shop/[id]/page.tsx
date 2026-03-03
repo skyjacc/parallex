@@ -89,7 +89,7 @@ export default function ProductPage() {
             const r = await fetch("/api/reviews", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ productId: id, rating: reviewRating, comment: reviewComment }) });
             const d = await r.json();
             if (d.ok) {
-                toast.success("Review posted!");
+                toast.success("Review submitted! It will appear after admin approval.");
                 setReviewComment("");
                 const rr = await fetch(`/api/reviews?productId=${id}`);
                 const dd = await rr.json();

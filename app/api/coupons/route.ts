@@ -30,7 +30,6 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: false, error: "Coupon usage limit reached" }, { status: 400 });
     }
 
-    const userId = (session.user as any).id;
     const alreadyUsed = await db.couponUse.findUnique({
         where: { couponId_userId: { couponId: coupon.id, userId } },
     });

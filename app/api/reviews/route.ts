@@ -11,7 +11,7 @@ export async function GET(req: Request) {
     if (!productId) return NextResponse.json({ error: "productId required" }, { status: 400 });
 
     const reviews = await db.review.findMany({
-        where: { productId },
+        where: { productId, approved: true },
         orderBy: { createdAt: "desc" },
         include: { user: { select: { name: true } } },
     });
@@ -68,7 +68,7 @@ export async function POST(req: Request) {
                 comment: (comment || "").slice(0, 500),
             },
         });
-        return NextResponse.json({ ok: true, reviewId: review.id }, { status: 201 });
+        return NextResponse.json({ ok: true, reviewId: review.id, message: "Review submitted! It will appear after admin approval." }, { status: 201 });
     } catch (e: any) {
         if (e?.code === "P2002") {
             return NextResponse.json({ error: "You already reviewed this product" }, { status: 409 });

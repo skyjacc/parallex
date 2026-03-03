@@ -10,6 +10,7 @@ import {
     Settings,
     HeadphonesIcon,
     Tag,
+    Star,
 } from "lucide-react";
 
 const adminTabs = [
@@ -18,6 +19,7 @@ const adminTabs = [
     { href: "/admin/orders", icon: ShoppingBag, label: "Orders" },
     { href: "/admin/users", icon: Users, label: "Users" },
     { href: "/admin/coupons", icon: Tag, label: "Coupons" },
+    { href: "/admin/reviews", icon: Star, label: "Reviews" },
     { href: "/admin/support", icon: HeadphonesIcon, label: "Support" },
     { href: "/admin/settings", icon: Settings, label: "Settings" },
 ];
